@@ -15,5 +15,5 @@ add_executable(fuse_mount
                 project/src/hello.cpp
                 project/src/helloFS.cpp)
 
-target_link_libraries(fuse_mount ${FUSE_LIBRARIES})
+target_link_libraries(fuse_mount rpc pthread ${FUSE_LIBRARIES})
 endif()

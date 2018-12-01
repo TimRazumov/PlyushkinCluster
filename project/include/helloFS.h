@@ -4,7 +4,7 @@
 #define __HELLOFS_H_
 
 #include "Fuse.h"
-
+#include "rpc/client.h"
 #include "Fuse-impl.h"
 
 class HelloFS : public Fusepp::Fuse<HelloFS>
@@ -27,12 +27,16 @@ public:
                   struct fuse_file_info *fi);
   //static int mknod(const char *, char*, size_t);
   
-  //static int write(const char *, const char*, size_t, off_t,
-  //                 struct fuse_file_info *);
+  static int write(const char *, const char*, size_t, off_t,
+                   struct fuse_file_info *);
 
   //static int unlink(const char *);
 
   //static int rename(const char *, const char *, unsigned int flags);
+
+  //static int mkdir(const char *, mode_t);
+
+  //static int rmdir(const char *);
 };
 
 #endif
