@@ -9,11 +9,11 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 find_package(FUSE REQUIRED)
 if(FUSE_FOUND)
 add_definitions(${FUSE_DEFINITIONS})
-include_directories(include ${FUSE_INCLUDE_DIRS})
+include_directories(project/include ${FUSE_INCLUDE_DIRS})
 add_executable(fuse_mount
-                src/Fuse.cpp
-                src/hello.cpp
-                src/helloFS.cpp)
+                project/src/Fuse.cpp
+                project/src/hello.cpp
+                project/src/helloFS.cpp)
 
 target_link_libraries(fuse_mount ${FUSE_LIBRARIES})
 endif()
