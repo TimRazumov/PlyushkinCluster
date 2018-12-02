@@ -36,7 +36,7 @@ private:
 
 public:
     // all .bind inside the constructor
-    explicit MDS(uint16_t port);
+    explicit MDS(const uint16_t &port);
     ~MDS() = default;
 
     void async_run(const std::size_t &worker_threads = 1) { this_server.async_run(worker_threads); }
@@ -45,7 +45,7 @@ public:
     std::vector<MDS_data> get_known_MDS() { return known_MDS; }
     std::vector<CS_data> get_known_CS() { return known_CS; }
 
-    void add_CS(std::string const &addr, uint16_t port);
+    void add_CS(const std::string &addr, uint16_t port);
 };
 
 
