@@ -8,12 +8,10 @@
 // include in one .cpp file
 #include "Fuse-impl.h"
 
-using namespace std;
-
+rpc::client client("127.0.0.1", 2280);
 
 int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
 {
-    rpc::client client("127.0.0.1", 2280);
     auto tmp = client.call("getattr", path).as<std::vector<int>>();
 	memset(stbuf, 0, sizeof(struct stat));
 	if (tmp[0] == -1) {
@@ -31,7 +29,6 @@ int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info
 int HelloFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			               off_t, struct fuse_file_info *, enum fuse_readdir_flags)
 {
-    rpc::client client("127.0.0.1", 2280);
 	if (!client.call("isDir", path).as<bool>())
 		return -ENOENT;
 
@@ -47,7 +44,6 @@ int HelloFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 int HelloFS::open(const char *path, struct fuse_file_info *fi)
 {
-    rpc::client client("127.0.0.1", 2280);
 	if (!(client.call("isFile", path).as<bool>())) {
 		return -ENOENT;
     }
@@ -61,7 +57,6 @@ int HelloFS::open(const char *path, struct fuse_file_info *fi)
 int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
 		              struct fuse_file_info *)
 {
-    rpc::client client("127.0.0.1", 2280);
 	if (!(client.call("isFile").as<bool>()))
 		return -ENOENT;
 
@@ -80,7 +75,6 @@ int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
 
 int HelloFS::write(const char *path, const char *buf, size_t size,
                    off_t offset, struct fuse_file_info *) {
-    rpc::client client("127.0.0.1", 2280);
     int len = client.call("write", path,
                           buf, size, offset).as<int>();
     return len;
