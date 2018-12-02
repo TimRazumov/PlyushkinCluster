@@ -6,13 +6,10 @@
 #include "rpc/server.h"
 #include "rpc/client.h"
 
-#include "MDS.h"
+#include "MDS_utils.h"
 
-//TODO first week
-//Клиент-сервер  // ля, а какие? у рпц так-то реализованы
-//Protobuf, select  // не нужно
-//Передача чанков в/из хранилища  // ez
-//Хранение файлов в хранилище  // ez
+// TODO: логгирование
+
 
 int main() {
     if (boost::filesystem::create_directories(MDS_DIRECTORY)) {

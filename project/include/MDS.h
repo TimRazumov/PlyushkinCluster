@@ -8,11 +8,15 @@
 #include "MDS_data.h"
 #include "CS_data.h"
 
-// TODO: перенести куски кода в .cpp файл
+
+// TODO: daemon
 // TODO: translate comments
 // TODO: проверка, не отвалились ли серваки (отделно MDS и CS)
 // TODO: действия в случае отключения сервака
-// TODO: разные действия сервака в зависимости от его статуса (master/slave)
+// TODO: разные действия сервака в зависимости от его статуса (master/slave) + RAID 1 for MDS
+// TODO: определение, какой МДС станет новым мастером в случае отвала старого
+// TODO: sysadmin tools: create and add server, set password, safety stop server, etc
+
 
 // основной класс для демона, работающего на серверах метаданных
 class MDS {
