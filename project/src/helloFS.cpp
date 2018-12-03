@@ -3,12 +3,14 @@
 #include "helloFS.h"
 
 #include <iostream>
+#include <vector>
 #include <string>
 
 // include in one .cpp file
 #include "Fuse-impl.h"
 
 rpc::client client("127.0.0.1", 2280);
+
 
 int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
 {
@@ -20,7 +22,7 @@ int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info
 	} else {
 		stbuf->st_mode = S_IFREG | 0666;
 		stbuf->st_nlink = 1;
-		stbuf->st_size = (size_t)tmp[0];
+		stbuf->st_size = tmp[0];
 	}
 
 	return 0;
@@ -78,4 +80,44 @@ int HelloFS::write(const char *path, const char *buf, size_t size,
     int len = client.call("write", path,
                           buf, size, offset).as<int>();
     return len;
+}
+
+int HelloFS::mknod(const char *path, mode_t mode, dev_t) {
+    bool ok = client.call("mknod", path).as<bool>();
+    if (!ok) {
+        return -errno;
+    }
+    return 0;
+}
+
+int HelloFS::unlink(const char *path) {
+    bool ok = client.call("delete_file", path).as<bool>();
+    if (!ok) {
+        return -errno;
+    }
+    return 0;
+}
+
+int HelloFS::rename(const char* from, const char* to, unsigned int) {
+    bool ok = client.call("rename", from, to).as<bool>();
+    if (!ok) {
+        return -errno;
+    }
+    return 0;
+}
+
+int HelloFS::mkdir(const char *path, mode_t) {
+    bool ok = client.call("mkdir", path).as<bool>();
+    if (!ok) {
+        return -errno;
+    }
+    return 0;
+}
+
+int HelloFS::rmdir(const char* path) {
+    bool ok = client.call("rmdir", path).as<bool>();
+    if (!ok) {
+        return -errno;
+    }
+    return 0;
 }
