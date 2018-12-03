@@ -1,4 +1,3 @@
-
 #include "utils.hpp"
 
 bool isFile(std::string const &path) {

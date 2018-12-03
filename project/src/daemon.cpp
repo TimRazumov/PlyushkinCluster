@@ -31,17 +31,6 @@ int main() {
             return attri;
         });
     
-    this_srv.bind("setattr", 
-        [&mds](std::string const path) {
-            std::string uuid = uuid_from_str(path);
-            auto attrs = mds.call("get_attr", uuid).as<std::vector<std::string>>();
-            std::vector<int> attri;
-            for (std::string n : attrs)
-                attri.push_back(atoi(n.c_str()));
-            return attri;
-        });
-
-
 
     this_srv.run();
 
