@@ -14,16 +14,19 @@ rpc::client client("127.0.0.1", 2280);
 
 int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
 {
+    std::cout << "getattr: " << path << std::endl;
     auto tmp = client.call("getattr", path).as<std::vector<int>>();
 	memset(stbuf, 0, sizeof(struct stat));
 	if (tmp[0] == -1) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-	} else {
+	} else if (tmp[0] >= 0) {
 		stbuf->st_mode = S_IFREG | 0666;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = tmp[0];
-	}
+	} else {
+        return -errno;
+    }
 
 	return 0;
 }
@@ -31,6 +34,7 @@ int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info
 int HelloFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			               off_t, struct fuse_file_info *, enum fuse_readdir_flags)
 {
+    std::cout << "readdir: " << path << std::endl;
 	if (!client.call("isDir", path).as<bool>())
 		return -ENOENT;
 
@@ -46,6 +50,7 @@ int HelloFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 int HelloFS::open(const char *path, struct fuse_file_info *fi)
 {
+    std::cout << "open: " << path << std::endl;
 	if (!(client.call("isFile", path).as<bool>())) {
 		return -ENOENT;
     }
@@ -59,11 +64,12 @@ int HelloFS::open(const char *path, struct fuse_file_info *fi)
 int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
 		              struct fuse_file_info *)
 {
-	if (!(client.call("isFile").as<bool>()))
+    std::cout << "read: " << path << std::endl;
+	if (!(client.call("isFile", path).as<bool>()))
 		return -ENOENT;
 
 	auto data = client.call("read", path, size, offset).as<std::string>();
-	size_t len = data.size();
+	size_t len =  data.size();
 	/*if ((size_t)offset < len) {
 		if (offset + size > len)
 			size = len - offset;
@@ -77,12 +83,15 @@ int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
 
 int HelloFS::write(const char *path, const char *buf, size_t size,
                    off_t offset, struct fuse_file_info *) {
+    std::cout << "write: " << path << " " << buf << " "
+              << size << " " << offset << std::endl;
     int len = client.call("write", path,
                           buf, size, offset).as<int>();
     return len;
 }
 
 int HelloFS::mknod(const char *path, mode_t mode, dev_t) {
+    std::cout << "mknod: " << path << std::endl;
     bool ok = client.call("mknod", path).as<bool>();
     if (!ok) {
         return -errno;
@@ -91,6 +100,7 @@ int HelloFS::mknod(const char *path, mode_t mode, dev_t) {
 }
 
 int HelloFS::unlink(const char *path) {
+    std::cout << "unlink: " << path << std::endl;
     bool ok = client.call("delete_file", path).as<bool>();
     if (!ok) {
         return -errno;
