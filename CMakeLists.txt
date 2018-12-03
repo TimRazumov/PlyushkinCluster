@@ -3,7 +3,9 @@ project(rpc_daemon)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(rpc_daemon
-               project/src/rpc_daemon.cpp)
+include_directories(project/include)
 
-target_link_libraries(rpc_daemon rpc pthread)
+add_executable(daemon
+               project/src/daemon.cpp project/src/utils.cpp)
+
+target_link_libraries(daemon rpc pthread)
