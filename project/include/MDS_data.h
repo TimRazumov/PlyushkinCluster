@@ -20,6 +20,8 @@ private:
     MDS_info info;
 public:
     MDS_info get_info() { return info; }
+
+    void change_timeout(int64_t new_timeout) { info.timeout = new_timeout; }
 };
 
 

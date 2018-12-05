@@ -50,6 +50,8 @@ public:
     std::vector<CS_data> get_known_CS() { return known_CS; }
 
     void add_CS(const std::string &addr, uint16_t port);
+
+    void change_timeout(int64_t new_timeout);
 };
 
 

@@ -127,3 +127,7 @@ MDS::MDS(const uint16_t &port)
 void MDS::add_CS(const std::string &addr, uint16_t port) {
     known_CS.emplace_back(CS_data(addr, port));
 }
+
+void MDS::change_timeout(int64_t new_timeout) {
+    data.change_timeout(new_timeout);
+}
