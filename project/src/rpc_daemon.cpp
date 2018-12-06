@@ -93,19 +93,38 @@ int main(int argc, char *argv[]) {
         return ret_str;
     });
 
-    srv.bind("write", [&clt](const std::string path, const std::string buf,
+    srv.bind("write", [&clt](const std::string path, std::string buf,
                              size_t size, off_t offset) {
-    
         auto path_uuid = uuid_from_str(path);
-        
+        int chunk_number = offset / CHUNK_SIZE;
+        int loc_offset = offset % CHUNK_SIZE;
+        int bias = 0;
+        auto ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::string>();
+        std::string chunk;
+        do {
+            ret.insert(loc_offset, buf);
+            chunk = ret.substr(0, CHUNK_SIZE);
+            clt.call("save_chunk", path_uuid, chunk_number + bias, chunk).as<bool>();
+            if (ret.size() < CHUNK_SIZE) {
+                break;
+            }
+            buf = ret.substr(CHUNK_SIZE, ret.size());
+            bias++;
+            loc_offset = 0;
+            ret = clt.call("get_chunk", path_uuid, chunk_number + bias).as<std::string>();
+        } while (true);
+        return true;
     });
 
     srv.bind("mknod", [&clt](const std::string path) {
-
+        auto path_uuid = uuid_from_str(path);
+        std::vector<std::string> attrs;
+        attrs.push_back(std::to_string(0));
+        return clt.call("set_attr", path_uuid, attrs).as<bool>();
     });
     
     srv.bind("delete_file", [&clt](const std::string path) {
-
+        return clt.call("delete_file", uuid_from_str(path)).as<bool>();
     });
 
     srv.bind("rename", [&clt](const std::string from, const std::string to) {
