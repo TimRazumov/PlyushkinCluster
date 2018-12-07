@@ -6,83 +6,70 @@
 #include <rpc/server.h>
 #include <ctime>
 
-#include "CS_utils.h"
-
 
 // TODO: безопасность
 
 int main() {
-    if (boost::filesystem::create_directories(CS_DIRECTORY)) {
-        std::cout << "mkdir " << CS_DIRECTORY << std::endl;
+    std::string CS_directory(getenv("HOME"));
+    CS_directory += "/plyushkincluster/servers/CS/";
+
+    if (boost::filesystem::create_directories(CS_directory)) {
+        std::cout << "Create directory " << CS_directory << std::endl;
     }
 
-
-
-    rpc::server this_CS(8080);
+    rpc::server this_CS(5100);
 
     this_CS.bind(
-            "stop_server", [&this_CS]() {
-                std::ofstream log_file(std::string(CS_DIRECTORY) + "/" + "log", std::ios_base::app);
-                log_file << "s";
-                log_file.close();
-
-                this_CS.stop();
-                return true;
-            }
-    );
-
-    this_CS.bind(
-            "save_chunk", [](const std::string &chunk_UUID, const std::string &chunk_content) {
-                std::ofstream log_file(std::string(CS_DIRECTORY) + "/" + "log", std::ios_base::app);
+            "save_chunk", [=](const std::string &chunk_UUID, const std::vector<char> &chunk_content) {
+                std::ofstream log_file(CS_directory + "log", std::ios_base::app);
                 time_t seconds = time(nullptr);
                 tm* time_info = localtime(&seconds);
                 log_file << asctime(time_info) << " save_chunk\n";
                 log_file.close();
 
 
-                std::ofstream chunk_file(std::string(CS_DIRECTORY) + "/" + chunk_UUID);
+                std::ofstream chunk_file(CS_directory + chunk_UUID);
 
-                chunk_file << chunk_content;
+                for (auto const &symbol : chunk_content) {
+                    chunk_file << symbol;
+                }
 
-
-                log_file.close();
-                return true;
+                chunk_file.close();
             }
     );
 
     this_CS.bind(
-            "download_chunk", [](const std::string &chunk_UUID) {
-                std::ofstream log_file(std::string(CS_DIRECTORY) + "/" + "log", std::ios_base::app);
+            "get_chunk", [=](const std::string &chunk_UUID) {
+                std::ofstream log_file(CS_directory + "log", std::ios_base::app);
                 time_t seconds = time(nullptr);
                 tm* time_info = localtime(&seconds);
-                log_file << asctime(time_info) << " download_chunk\n";
+                log_file << asctime(time_info) << " get_chunk\n";
                 log_file.close();
 
-                std::ifstream chunk_file(std::string(CS_DIRECTORY) + "/" + chunk_UUID);
-                std::string result, buffer;
+                std::ifstream chunk_file(CS_directory + chunk_UUID);
+                std::vector<char> chunk_content;
+                char buffer;
 
-                while (std::getline(chunk_file, buffer)) {
-                    result += buffer + "\n";
-                }
+                chunk_file.get(buffer);
+                while (!chunk_file.eof()) {
+                    chunk_content.push_back(buffer);
+                    chunk_file.get(buffer);
+                };
 
-                if (result.length() > 0) {
-                    result.pop_back();
-                }
-
-                return result;
+                chunk_file.close();
+                return chunk_content;
             }
     );
 
     this_CS.bind(
-            "delete_chunk", [](const std::string &chunk_UUID) {
-                std::ofstream log_file(std::string(CS_DIRECTORY) + "/" + "log", std::ios_base::app);
+            "delete_chunk", [=](const std::string &chunk_UUID) {
+                std::ofstream log_file(CS_directory + "log", std::ios_base::app);
                 time_t seconds = time(nullptr);
                 tm* time_info = localtime(&seconds);
                 log_file << asctime(time_info) << " delete_chunk\n";
                 log_file.close();
 
-                boost::filesystem::remove(std::string(CS_DIRECTORY) + "/" + chunk_UUID);
-                return true;
+                boost::filesystem::remove(CS_directory + chunk_UUID);
             }
     );
 
