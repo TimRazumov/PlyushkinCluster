@@ -19,6 +19,12 @@ int min(int a, int b) {
     return a < b ? a : b;
 }
 
+std::vector<char>::iterator line_end(std::vector<char>::iterator it) {
+    while (*it != '\n')
+        it++;
+    return it;
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         return -1;
@@ -28,8 +34,7 @@ int main(int argc, char *argv[]) {
     rpc::client clt(argv[1], MDS_PORT);
     
     clt.set_timeout(TIMEOUT);
-
-    srv.bind("getattr", [&clt](const std::string path) {
+    auto getattr = [&](const std::string path)->std::vector<int> {
         auto path_uuid = uuid_from_str(path);
         auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
         std::vector<int> attrs;
@@ -37,34 +42,33 @@ int main(int argc, char *argv[]) {
             attrs.push_back(std::stoi(i));
         }
         return attrs;
-    });
+    };
+    srv.bind("getattr", getattr);
 
-    srv.bind("readdir", [&clt](const std::string path) {
+    srv.bind("readdir", [&](const std::string path) {
         auto path_uuid = uuid_from_str(path);
         int i = 0;
-        auto ret = clt.call("get_chunk", path_uuid, i).as<std::string>();
+        auto ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
         std::vector<std::string> ret_vec;
-        if (ret.size() == 0) {
+        auto iter = ret.begin();
+        if (ret.empty()) {
             return ret_vec;
         }
         do {
-            std::istringstream str(ret);
-            std::string buf;
-            while (std::getline(str, buf)) {
-                ret_vec.push_back(buf);
-            }
+            auto tmp_iter = line_end(iter);
+            ret_vec.push_back(std::string(iter, tmp_iter));
+            iter = tmp_iter + 1;
             i++;
-            ret.clear();
-            ret = clt.call("get_chunk", path_uuid, i).as<std::string>();
-        } while (ret.size() != 0);
+            ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
+        } while (!ret.empty());
         return ret_vec;
     });
     
-    srv.bind("isDir", [&clt](const std::string path) {
+    srv.bind("isDir", [&](const std::string path) {
 
     });
 
-    srv.bind("isFile", [&clt](const std::string path) {
+    srv.bind("isFile", [&](const std::string path) {
         auto path_uuid = uuid_from_str(path);
         auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
         if (ret.size() != 0 &&
@@ -74,68 +78,81 @@ int main(int argc, char *argv[]) {
         return false;
     });
 
-    srv.bind("read", [&clt](const std::string path, size_t size, off_t offset) {
-        auto path_uuid = uuid_from_str(path);
-        int chunk_number = offset/CHUNK_SIZE;
+    srv.bind("read", [&](const std::string path, size_t size, off_t offset)->std::string {
+        int file_size = getattr(path)[0];
+        if (offset >= file_size) {
+            return "";
+        }
+        if (size + offset > file_size) {
+            size = file_size - offset;
+        }
+        int max_chunks = file_size / CHUNK_SIZE; 
+        int chunk_number = offset / CHUNK_SIZE;
         int local_offset = offset % CHUNK_SIZE;
-        int bias = 0;
-        auto ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::string>();
+        auto path_uuid = uuid_from_str(path);
         std::string ret_str = "";
         do {
-            ret_str += ret.substr(local_offset, min(size, CHUNK_SIZE - local_offset));
+            auto ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
+            ret_str += std::string(ret.begin() + local_offset,
+                    ret.begin() + local_offset + 
+                    min(size, CHUNK_SIZE - local_offset));
             size -= ret_str.size();
-            bias++;
             local_offset = 0;
-            ret.clear();
-            ret = clt.call("get_chunk", path_uuid,
-                    chunk_number +bias).as<std::string>();
-        } while (size > 0 && ret.size() > 0);
+            chunk_number++;
+        } while (size > 0);
         return ret_str;
     });
 
-    srv.bind("write", [&clt](const std::string path, std::string buf,
+    srv.bind("write", [&](const std::string path, std::string buf,
                              size_t size, off_t offset) {
-        auto path_uuid = uuid_from_str(path);
+        auto attrs = getattr(path);
+        size_t file_size = attrs[0];
+        int max_chunks = file_size / CHUNK_SIZE; 
         int chunk_number = offset / CHUNK_SIZE;
         int loc_offset = offset % CHUNK_SIZE;
-        int bias = 0;
-        auto ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::string>();
-        std::string chunk;
-        do {
-            ret.insert(loc_offset, buf);
-            chunk = ret.substr(0, CHUNK_SIZE);
-            clt.call("save_chunk", path_uuid, chunk_number + bias, chunk).as<bool>();
-            if (ret.size() < CHUNK_SIZE) {
-                break;
+        auto path_uuid = uuid_from_str(path);
+        std::vector<char> ret;
+        while (!buf.empty()) {
+            if (chunk_number <= max_chunks) {
+                ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
             }
-            buf = ret.substr(CHUNK_SIZE, ret.size());
-            bias++;
+            ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
+            auto chunk = std::vector<char>(ret.begin(), ret.begin() + CHUNK_SIZE);
+            chunk_number++;
+            clt.call("save_chunk", path_uuid, chunk_number, chunk).as<bool>();
+            if (ret.size() > CHUNK_SIZE) {
+                buf = std::string(ret.begin() + CHUNK_SIZE, ret.end());
+            } else {
+                buf = "";
+            }
             loc_offset = 0;
-            ret = clt.call("get_chunk", path_uuid, chunk_number + bias).as<std::string>();
-        } while (true);
-        return true;
+            ret.clear();
+        }
+        std::vector<std::string> set_attrs;
+        set_attrs.push_back(std::to_string(file_size + size));
+        return clt.call("set_attr", path_uuid, set_attrs).as<bool>();
     });
 
-    srv.bind("mknod", [&clt](const std::string path) {
+    srv.bind("mknod", [&](const std::string path) {
         auto path_uuid = uuid_from_str(path);
         std::vector<std::string> attrs;
         attrs.push_back(std::to_string(0));
         return clt.call("set_attr", path_uuid, attrs).as<bool>();
     });
     
-    srv.bind("delete_file", [&clt](const std::string path) {
+    srv.bind("delete_file", [&](const std::string path) {
         return clt.call("delete_file", uuid_from_str(path)).as<bool>();
     });
 
-    srv.bind("rename", [&clt](const std::string from, const std::string to) {
+    srv.bind("rename", [&](const std::string from, const std::string to) {
     
     });
     
-    srv.bind("mkdir", [&clt](const std::string path) {
+    srv.bind("mkdir", [&](const std::string path) {
 
     });
     
-    srv.bind("rmdir", [&clt](const std::string path) {
+    srv.bind("rmdir", [&](const std::string path) {
 
     });
 
