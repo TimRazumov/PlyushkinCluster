@@ -5,7 +5,6 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/name_generator.hpp>
-#include <sys/stat.h>
 
 #include "utils.hpp"
 
@@ -15,20 +14,11 @@ const int MDS_PORT = 5000;
 constexpr size_t CHUNK_SIZE = 2*1024*1024;
 
 
-int min(int a, int b) {
-    return a < b ? a : b;
-}
-
-std::vector<char>::iterator line_end(std::vector<char>::iterator it) {
-    while (*it != '\n')
-        it++;
-    return it;
-}
-
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         return -1;
     }
+
     rpc::server srv(LOCAL_PORT);
 
     rpc::client clt(argv[1], MDS_PORT);
@@ -128,24 +118,72 @@ int main(int argc, char *argv[]) {
             loc_offset = 0;
             ret.clear();
         }
-        std::vector<std::string> set_attrs;
-        set_attrs.push_back(std::to_string(file_size + size));
-        return clt.call("set_attr", path_uuid, set_attrs).as<bool>();
+        attrs[0] += size;
+        return clt.call("set_attr", path_uuid,
+                attrs_to_string(attrs)).as<bool>();
     };
+
 
     auto mknod = [&](const std::string path) {
         auto path_uuid = uuid_from_str(path);
         std::vector<std::string> attrs;
         attrs.push_back(std::to_string(0));
-        return clt.call("set_attr", path_uuid, attrs).as<bool>();
+        attrs.push_back(std::to_string(0));
+        clt.call("set_attr", path_uuid, attrs).as<bool>();
+
+        auto cur_dir = getDirByPath(path);
+        auto filename = path.substr(cur_dir.size() + 1, path.size());
+        auto dir_attrs = getattr(cur_dir);
+        return write(cur_dir, filename, filename.size(), dir_attrs[0]);
+    };
+
+    auto delete_from_dir = [&](std::string cur_dir, std::string filename) {
+        int cur_chunk = 0;
+        std::string chunk;
+        std::vector<char> buf;
+        auto list_of_files = readdir(cur_dir);
+        for (auto i : list_of_files) {
+            if (i == filename)
+                continue;
+            chunk += i;
+            if (chunk.size() >= CHUNK_SIZE) {
+                clt.call("save_chunk", uuid_from_str(cur_dir), cur_chunk,
+                         std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE)).as<bool>();
+                chunk.clear();
+            }
+        }
+        clt.call("save_chunk", uuid_from_str(cur_dir), cur_chunk,
+                 std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE)).as<bool>();
     };
     
     auto delete_file = [&](const std::string path) {
-        return clt.call("delete_file", uuid_from_str(path)).as<bool>();
+        clt.call("delete_file", uuid_from_str(path)).as<bool>();
+        auto cur_dir = getDirByPath(path);
+        auto dir_attrs = getattr(cur_dir);
+        auto filename = path.substr(cur_dir.size() + 1, path.size()) + '\n';
+        dir_attrs[0] -= filename.size();
+        delete_from_dir(cur_dir, filename);
+        return clt.call("set_attr", uuid_from_str(cur_dir),
+                    attrs_to_string(dir_attrs)).as<bool>();
     };
 
     auto rename = [&](const std::string from, const std::string to) {
-    
+        clt.call("rename", from, to);
+        auto from_dir = getDirByPath(from);
+        auto to_dir = getDirByPath(to);
+        auto from_filename = from.substr(from_dir.size() + 1, from.size()) + '\n';
+        auto to_filename = to.substr(to_dir.size() + 1, to.size()) + '\n';
+        auto from_attrs = getattr(from);
+        auto to_attrs = getattr(to);
+        write(to, to_filename, to_filename.size(), to_attrs[0]);
+        delete_from_dir(from_dir, from_filename);
+        from_attrs[0] -= from_filename.size();
+        to_attrs[0] += to_filename.size();
+        clt.call("set_attr", uuid_from_str(from_dir),
+                 attrs_to_string(from_attrs)).as<bool>();
+        clt.call("set_attr", uuid_from_str(to_dir),
+                 attrs_to_string(to_attrs)).as<bool>();
+        return true;
     };
     
     auto mkdir = [&](const std::string path) {
