@@ -43,9 +43,9 @@ int main(int argc, char *argv[]) {
         }
         return attrs;
     };
-    srv.bind("getattr", getattr);
 
-    srv.bind("readdir", [&](const std::string path) {
+
+    auto readdir = [&](const std::string path) {
         auto path_uuid = uuid_from_str(path);
         int i = 0;
         auto ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
@@ -62,13 +62,13 @@ int main(int argc, char *argv[]) {
             ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
         } while (!ret.empty());
         return ret_vec;
-    });
+    };
     
-    srv.bind("isDir", [&](const std::string path) {
+    auto isDir = [&](const std::string path) {
 
-    });
+    };
 
-    srv.bind("isFile", [&](const std::string path) {
+    auto isFile = [&](const std::string path) {
         auto path_uuid = uuid_from_str(path);
         auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
         if (ret.size() != 0 &&
@@ -76,9 +76,9 @@ int main(int argc, char *argv[]) {
             return true;
         }
         return false;
-    });
+    };
 
-    srv.bind("read", [&](const std::string path, size_t size, off_t offset)->std::string {
+    auto read = [&](const std::string path, size_t size, off_t offset)->std::string {
         int file_size = getattr(path)[0];
         if (offset >= file_size) {
             return "";
@@ -101,9 +101,9 @@ int main(int argc, char *argv[]) {
             chunk_number++;
         } while (size > 0);
         return ret_str;
-    });
+    };
 
-    srv.bind("write", [&](const std::string path, std::string buf,
+    auto write = [&](const std::string path, std::string buf,
                              size_t size, off_t offset) {
         auto attrs = getattr(path);
         size_t file_size = attrs[0];
@@ -131,30 +131,42 @@ int main(int argc, char *argv[]) {
         std::vector<std::string> set_attrs;
         set_attrs.push_back(std::to_string(file_size + size));
         return clt.call("set_attr", path_uuid, set_attrs).as<bool>();
-    });
+    };
 
-    srv.bind("mknod", [&](const std::string path) {
+    auto mknod = [&](const std::string path) {
         auto path_uuid = uuid_from_str(path);
         std::vector<std::string> attrs;
         attrs.push_back(std::to_string(0));
         return clt.call("set_attr", path_uuid, attrs).as<bool>();
-    });
+    };
     
-    srv.bind("delete_file", [&](const std::string path) {
+    auto delete_file = [&](const std::string path) {
         return clt.call("delete_file", uuid_from_str(path)).as<bool>();
-    });
+    };
 
-    srv.bind("rename", [&](const std::string from, const std::string to) {
+    auto rename = [&](const std::string from, const std::string to) {
     
-    });
+    };
     
-    srv.bind("mkdir", [&](const std::string path) {
+    auto mkdir = [&](const std::string path) {
 
-    });
+    };
     
-    srv.bind("rmdir", [&](const std::string path) {
+    auto rmdir = [&](const std::string path) {
 
-    });
+    };
+
+    srv.bind("getattr", getattr);
+    srv.bind("readdir", readdir);
+    srv.bind("isDir", isDir);
+    srv.bind("isFile", isFile);
+    srv.bind("read", read);
+    srv.bind("write", write);
+    srv.bind("mknod", mknod);
+    srv.bind("delete_file", delete_file);
+    srv.bind("rename", rename);
+    srv.bind("mkdir", mkdir);
+    srv.bind("rmdir", rmdir);
 
     srv.run();
 }
