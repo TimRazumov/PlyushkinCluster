@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
     };
 
     auto rename = [&](const std::string from, const std::string to) {
-        clt.send("rename", from, to);
+        clt.send("rename", uuid_from_str(from), uuid_from_str(to));
         auto from_dir = getDirByPath(from);
         auto to_dir = getDirByPath(to);
         auto from_filename = from.substr(from_dir.size() + 1, from.size()) + '\n';
