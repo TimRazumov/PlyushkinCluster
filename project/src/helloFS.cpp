@@ -17,10 +17,10 @@ int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info
     std::cout << "getattr: " << path << std::endl;
     auto tmp = client.call("getattr", path).as<std::vector<int>>();
 	memset(stbuf, 0, sizeof(struct stat));
-	if (tmp[0] == -1) {
+	if (tmp[1] == 1) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-	} else if (tmp[0] >= 0) {
+	} else if (tmp[1] == 0) {
 		stbuf->st_mode = S_IFREG | 0666;
 		stbuf->st_nlink = 1;
 		stbuf->st_size = tmp[0];
