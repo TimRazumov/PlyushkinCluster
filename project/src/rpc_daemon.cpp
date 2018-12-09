@@ -53,10 +53,6 @@ int main(int argc, char *argv[]) {
         } while (!ret.empty());
         return ret_vec;
     };
-    
-    auto isDir = [&](const std::string path) {
-        return !isFile(path);
-    };
 
     auto isFile = [&](const std::string path) {
         auto path_uuid = uuid_from_str(path);
@@ -66,6 +62,10 @@ int main(int argc, char *argv[]) {
             return true;
         }
         return false;
+    };
+    
+    auto isDir = [&](const std::string path) {
+        return !isFile(path);
     };
 
     auto read = [&](const std::string path, size_t size, off_t offset)->std::string {
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
             ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
             auto chunk = std::vector<char>(ret.begin(), ret.begin() + CHUNK_SIZE);
             chunk_number++;
-            clt.call("save_chunk", path_uuid, chunk_number, chunk).as<bool>();
+            clt.send("save_chunk", path_uuid, chunk_number, chunk);
             if (ret.size() > CHUNK_SIZE) {
                 buf = std::string(ret.begin() + CHUNK_SIZE, ret.end());
             } else {
@@ -119,8 +119,9 @@ int main(int argc, char *argv[]) {
             ret.clear();
         }
         attrs[0] += size;
-        return clt.call("set_attr", path_uuid,
-                attrs_to_string(attrs)).as<bool>();
+        clt.send("set_attr", path_uuid,
+                attrs_to_string(attrs));
+        return true;
     };
 
 
@@ -129,7 +130,7 @@ int main(int argc, char *argv[]) {
         std::vector<std::string> attrs;
         attrs.push_back(std::to_string(0));
         attrs.push_back(std::to_string(0));
-        clt.call("set_attr", path_uuid, attrs).as<bool>();
+        clt.send("set_attr", path_uuid, attrs);
 
         auto cur_dir = getDirByPath(path);
         auto filename = path.substr(cur_dir.size() + 1, path.size());
@@ -147,28 +148,29 @@ int main(int argc, char *argv[]) {
                 continue;
             chunk += i;
             if (chunk.size() >= CHUNK_SIZE) {
-                clt.call("save_chunk", uuid_from_str(cur_dir), cur_chunk,
-                         std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE)).as<bool>();
+                clt.send("save_chunk", uuid_from_str(cur_dir), cur_chunk,
+                         std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE));
                 chunk.clear();
             }
         }
-        clt.call("save_chunk", uuid_from_str(cur_dir), cur_chunk,
-                 std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE)).as<bool>();
+        clt.send("save_chunk", uuid_from_str(cur_dir), cur_chunk,
+                 std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE));
     };
     
     auto delete_file = [&](const std::string path) {
-        clt.call("delete_file", uuid_from_str(path)).as<bool>();
+        clt.send("delete_file", uuid_from_str(path));
         auto cur_dir = getDirByPath(path);
         auto dir_attrs = getattr(cur_dir);
         auto filename = path.substr(cur_dir.size() + 1, path.size()) + '\n';
         dir_attrs[0] -= filename.size();
         delete_from_dir(cur_dir, filename);
-        return clt.call("set_attr", uuid_from_str(cur_dir),
-                    attrs_to_string(dir_attrs)).as<bool>();
+        clt.send("set_attr", uuid_from_str(cur_dir),
+                 attrs_to_string(dir_attrs));
+        return true;
     };
 
     auto rename = [&](const std::string from, const std::string to) {
-        clt.call("rename", from, to);
+        clt.send("rename", from, to);
         auto from_dir = getDirByPath(from);
         auto to_dir = getDirByPath(to);
         auto from_filename = from.substr(from_dir.size() + 1, from.size()) + '\n';
@@ -179,10 +181,10 @@ int main(int argc, char *argv[]) {
         delete_from_dir(from_dir, from_filename);
         from_attrs[0] -= from_filename.size();
         to_attrs[0] += to_filename.size();
-        clt.call("set_attr", uuid_from_str(from_dir),
-                 attrs_to_string(from_attrs)).as<bool>();
-        clt.call("set_attr", uuid_from_str(to_dir),
-                 attrs_to_string(to_attrs)).as<bool>();
+        clt.send("set_attr", uuid_from_str(from_dir),
+                 attrs_to_string(from_attrs));
+        clt.send("set_attr", uuid_from_str(to_dir),
+                 attrs_to_string(to_attrs));
         return true;
     };
     
