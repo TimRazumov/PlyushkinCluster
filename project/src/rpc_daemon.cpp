@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
     };
     
     auto isDir = [&](const std::string path) {
-
+        return !isFile(path);
     };
 
     auto isFile = [&](const std::string path) {
