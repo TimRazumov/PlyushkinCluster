@@ -16,7 +16,7 @@ private:
 public:
     CS_data(const std::string &addr, uint16_t port) : info{addr, port} {}
     ~CS_data() = default;
-    CS_info get_info() { return info; }
+    CS_info get_info() const { return info; }
 };
 
 
