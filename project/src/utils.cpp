@@ -33,3 +33,21 @@ std::string uuid_from_str(std::string const &path) {
     boost::uuids::name_generator path_gen(gen());
     return to_string(path_gen(path));
 }
+
+void add_log(const std::string &directory, const std::string &log) {
+    std::ofstream log_file(directory + "log", std::ios_base::app);
+    time_t seconds = time(nullptr);
+    tm* time_info = localtime(&seconds);
+    log_file << asctime(time_info) << " " << log << "\n";
+    log_file.close();
+}
+
+static bool str_to_uint16(const char *str, uint16_t &res) {
+    char *end;
+    errno = 0;
+    intmax_t val = strtoimax(str, &end, 10);
+    if (errno == ERANGE || val < 0 || val > UINT16_MAX || end == str || *end != '\0')
+        return false;
+    res = (uint16_t) val;
+    return true;
+}

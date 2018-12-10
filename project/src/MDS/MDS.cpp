@@ -6,22 +6,13 @@
 #include <rpc/server.h>
 #include <rpc/client.h>
 #include <rpc/this_handler.h>
-#include <ctime>
 
 #include "MDS.h"
-
-// TODO: delete this shit
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
+#include "utils.hpp"
 
 
 // разделяет данные о файле и о расположении чанков, мне кажется, что жуткий костыль, так что TODO
 const char *META_DATA_SEPARATOR = "~~~~";
-
-// TODO: move add_log and uuid_from_str to utils
-void add_log(const std::string &directory, const std::string &log);
-std::string uuid_from_str(std::string const &path);
 
 
 MDS::MDS(const uint16_t &port)
@@ -277,20 +268,4 @@ void MDS::change_timeout(int64_t new_timeout) {
 
 void MDS::change_status() {
     data.change_status();
-}
-
-
-
-void add_log(const std::string &directory, const std::string &log) {
-    std::ofstream log_file(directory + "log", std::ios_base::app);
-    time_t seconds = time(nullptr);
-    tm* time_info = localtime(&seconds);
-    log_file << asctime(time_info) << " " << log << "\n";
-    log_file.close();
-}
-
-std::string uuid_from_str(std::string const &path) {
-    boost::uuids::nil_generator gen;
-    boost::uuids::name_generator path_gen(gen());
-    return to_string(path_gen(path));
 }
