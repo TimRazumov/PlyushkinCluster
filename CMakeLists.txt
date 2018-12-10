@@ -1,5 +1,22 @@
-cmake_minimum_required(VERSION 3.10)
-project(fuse_mount)
+cmake_minimum_required(VERSION 3.12)
+project(plyushkincluster)
+
+set(CMAKE_CXX_STANDARD 17)
+
+find_package(Boost 1.45.0 COMPONENTS filesystem)
+
+include_directories(project/include)
+
+add_executable(MDS
+        project/src/MDS/MDS_main.cpp
+        CMakeLists.txt project/src/MDS/MDS.cpp project/include/MDS.h project/include/MDS_data.h project/include/CS_data.h)
+
+add_executable(CS
+        project/src/CS/CS_main.cpp
+        CMakeLists.txt project/include/CS_data.h)
+
+target_link_libraries(CS rpc pthread Boost::filesystem)
+target_link_libraries(MDS rpc pthread Boost::filesystem)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_FILE_OFFSET_BITS=64")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall --pedantic -g")
