@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
     };
 
     auto write = [&](const std::string path, std::string buf,
-                             size_t size, off_t offset) {
+                     size_t size, off_t offset) {
         auto attrs = getattr(path);
         size_t file_size = attrs[0];
         int max_chunks = file_size / CHUNK_SIZE; 
@@ -107,13 +107,14 @@ int main(int argc, char *argv[]) {
                 ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
             }
             ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
-            auto chunk = std::vector<char>(ret.begin(), ret.begin() + CHUNK_SIZE);
+            auto chunk = std::vector<char>(ret.begin(), ret.begin() + 
+                         std::min<int>(ret.size(), CHUNK_SIZE));
             chunk_number++;
             clt.send("save_chunk", path_uuid, chunk_number, chunk);
             if (ret.size() > CHUNK_SIZE) {
                 buf = std::string(ret.begin() + CHUNK_SIZE, ret.end());
             } else {
-                buf = "";
+                buf.clear();
             }
             loc_offset = 0;
             ret.clear();
