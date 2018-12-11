@@ -1,6 +1,7 @@
 #include <iostream>
 #include <rpc/client.h>
 #include <rpc/server.h>
+#include <rpc/rpc_error.h>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/nil_generator.hpp>
@@ -24,18 +25,34 @@ int main(int argc, char *argv[]) {
     rpc::client clt(argv[1], MDS_PORT);
     
     clt.set_timeout(TIMEOUT);
-    auto getattr = [&](const std::string path)->std::vector<int> {
-        auto path_uuid = uuid_from_str(path);
-        auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
-        std::vector<int> attrs;
-        for (auto i : ret) {
-            attrs.push_back(std::stoi(i));
+
+    auto access = [&](const std::string path) {
+        std::cout << "access: " << path << std::endl;
+        if (clt.call("is_meta_exist", uuid_from_str(path)).as<bool>()) {
+            return 0;
         }
-        return attrs;
+        return -1;
+    };
+
+    auto getattr = [&](const std::string path)->std::vector<int> {
+        try {
+            std::cout << "getattr: " << path << std::endl;
+            auto path_uuid = uuid_from_str(path);
+            auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
+            std::vector<int> attrs;
+            for (auto i : ret) {
+                attrs.push_back(std::stoi(i));
+            }
+            return attrs;
+        } catch (rpc::rpc_error& a) {
+            std::vector<int> attrs;
+            return attrs;
+        }
     };
 
 
     auto readdir = [&](const std::string path) {
+        std::cout << "readdir: " << path << std::endl;
         auto path_uuid = uuid_from_str(path);
         int i = 0;
         auto ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
@@ -55,20 +72,27 @@ int main(int argc, char *argv[]) {
     };
 
     auto isFile = [&](const std::string path) {
-        auto path_uuid = uuid_from_str(path);
-        auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
-        if (ret.size() != 0 &&
-            std::stoi(ret[0]) >= 0) {
-            return true;
+        try {
+            std::cout << "isFile: " << path << std::endl;
+            auto path_uuid = uuid_from_str(path);
+            auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
+            if (ret.size() != 0 &&
+                std::stoi(ret[0]) >= 0) {
+                return true;
+            }
+            return false;
+        } catch (rpc::rpc_error &e) {
+            return false;
         }
-        return false;
     };
     
     auto isDir = [&](const std::string path) {
+        std::cout << "isDir: " << path << std::endl;
         return !isFile(path);
     };
 
     auto read = [&](const std::string path, size_t size, off_t offset)->std::string {
+        std::cout << "read: " << path << std::endl;
         int file_size = getattr(path)[0];
         if (offset >= file_size) {
             return "";
@@ -95,6 +119,7 @@ int main(int argc, char *argv[]) {
 
     auto write = [&](const std::string path, std::string buf,
                      size_t size, off_t offset) {
+        std::cout << "write: " << path << std::endl;
         auto attrs = getattr(path);
         size_t file_size = attrs[0];
         int max_chunks = file_size / CHUNK_SIZE; 
@@ -130,7 +155,7 @@ int main(int argc, char *argv[]) {
         auto path_uuid = uuid_from_str(path);
         std::vector<std::string> attrs;
         attrs.push_back(std::to_string(0));
-        attrs.push_back(std::to_string(0));
+        attrs.push_back(std::to_string(1));
         clt.send("set_attr", path_uuid, attrs);
 
         auto cur_dir = getDirByPath(path);
@@ -197,6 +222,7 @@ int main(int argc, char *argv[]) {
 
     };
 
+    srv.bind("access", access);
     srv.bind("getattr", getattr);
     srv.bind("readdir", readdir);
     srv.bind("isDir", isDir);

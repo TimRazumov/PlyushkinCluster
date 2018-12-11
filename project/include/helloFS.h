@@ -14,6 +14,8 @@ public:
 
   ~HelloFS() {}
   
+  static int access(const char*, int);
+
   static void* init(struct fuse_conn_info*, struct fuse_config*);
 
   static int getattr (const char *, struct stat *, struct fuse_file_info *);

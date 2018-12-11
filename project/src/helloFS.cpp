@@ -17,22 +17,31 @@ void* HelloFS::init(struct fuse_conn_info*, struct fuse_config*) {
     client.set_timeout(TIMEOUT);
 }
 
+int HelloFS::access(const char* path, int) {
+    std::cout << "access: " << path << std::endl;
+    int ret = client.call("access", path).as<int>();
+    if (ret == -1) {
+        return -errno;
+    }
+    return 0;
+}
+
 int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
 {
     std::cout << "getattr: " << path << std::endl;
     auto tmp = client.call("getattr", path).as<std::vector<int>>();
+    if (tmp.empty()) {
+        return 0;
+    }
 	memset(stbuf, 0, sizeof(struct stat));
-	if (tmp[1] == 1) {
+	if (tmp[1] > 1) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-	} else if (tmp[1] == 0) {
-		stbuf->st_mode = S_IFREG | 0666;
-		stbuf->st_nlink = 1;
-		stbuf->st_size = tmp[0];
 	} else {
-        return -errno;
+		stbuf->st_mode = S_IFREG | 0666;
+		stbuf->st_nlink = tmp[1];
+		stbuf->st_size = tmp[0];
     }
-
 	return 0;
 }
 

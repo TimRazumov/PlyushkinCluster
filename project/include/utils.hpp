@@ -28,6 +28,6 @@ std::vector<std::string> attrs_to_string(std::vector<int> attrs);
 std::string getDirByPath(const std::string &path);
 
 void add_log(const std::string &directory, const std::string &log);
-static bool str_to_uint16(const char *str, uint16_t &res);
+bool str_to_uint16(const char *str, uint16_t &res);
 
 #endif

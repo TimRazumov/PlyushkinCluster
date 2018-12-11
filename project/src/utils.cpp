@@ -42,7 +42,7 @@ void add_log(const std::string &directory, const std::string &log) {
     log_file.close();
 }
 
-static bool str_to_uint16(const char *str, uint16_t &res) {
+bool str_to_uint16(const char *str, uint16_t &res) {
     char *end;
     errno = 0;
     intmax_t val = strtoimax(str, &end, 10);
