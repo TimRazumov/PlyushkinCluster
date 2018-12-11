@@ -36,6 +36,13 @@ MDS::MDS(const uint16_t &port)
 
 // TODO: exceptions
 void MDS::binding() {
+    this_server.bind(
+            "is_meta_exist", [=](const std::string &file_UUID) {
+                add_log(MDS_directory, "is_meta_exist");
+                return boost::filesystem::exists(MDS_directory + file_UUID);
+            }
+    );
+
     // TODO: тут в вектор забивается вообще все, что есть в файле, что долго. Научите меня нормально работать с файлами, плз, тут говнокод шо песос
     this_server.bind(
             "set_attr", [=](const std::string &file_UUID, const std::vector<std::string> &attr) {

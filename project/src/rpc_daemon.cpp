@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
             auto path_uuid = uuid_from_str(path);
             auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
             std::vector<int> attrs;
-            for (auto i : ret) {
+            for (const auto &i : ret) {
                 attrs.push_back(std::stoi(i));
             }
             return attrs;
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
         }
         do {
             auto tmp_iter = line_end(iter);
-            ret_vec.push_back(std::string(iter, tmp_iter));
+            ret_vec.emplace_back(std::string(iter, tmp_iter));
             iter = tmp_iter + 1;
             i++;
             ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
@@ -101,8 +101,8 @@ int main(int argc, char *argv[]) {
             size = file_size - offset;
         }
         int max_chunks = file_size / CHUNK_SIZE; 
-        int chunk_number = offset / CHUNK_SIZE;
-        int local_offset = offset % CHUNK_SIZE;
+        size_t chunk_number = offset / CHUNK_SIZE;
+        size_t local_offset = offset % CHUNK_SIZE;
         auto path_uuid = uuid_from_str(path);
         std::string ret_str = "";
         do {

@@ -12,8 +12,8 @@ std::vector<char>::iterator line_end(std::vector<char>::iterator it) {
 
 std::vector<std::string> attrs_to_string(std::vector<int> attrs) {
     std::vector<std::string> set_attrs;
-    for (int i = 0; i < attrs.size(); i++) {
-        set_attrs.push_back(std::to_string(attrs[i]));
+    for (const auto &attr : attrs) {
+        set_attrs.push_back(std::to_string(attr));
     }
     return set_attrs;
 }
