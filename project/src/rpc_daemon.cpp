@@ -9,7 +9,7 @@
 
 #include "utils.hpp"
 
-const int TIMEOUT = 5000;
+const int TIMEOUT = 10000;
 const int LOCAL_PORT = 2280;
 const int MDS_PORT = 5000;
 constexpr size_t CHUNK_SIZE = 2*1024*1024;
@@ -27,11 +27,14 @@ int main(int argc, char *argv[]) {
     clt.set_timeout(TIMEOUT);
 
     auto access = [&](const std::string path) {
-        std::cout << "access: " << path << std::endl;
-        if (clt.call("is_meta_exist", uuid_from_str(path)).as<bool>()) {
-            return 0;
+        try {
+            std::cout << "access: " << path << std::endl;
+            if (clt.call("is_meta_exist", uuid_from_str(path)).as<bool>()) {
+                return 0;
+            }
+            return -1;
+        } catch (rpc::rpc_error &e) {
         }
-        return -1;
     };
 
     auto getattr = [&](const std::string path)->std::vector<int> {
@@ -45,29 +48,29 @@ int main(int argc, char *argv[]) {
             }
             return attrs;
         } catch (rpc::rpc_error& a) {
-            std::vector<int> attrs;
-            return attrs;
+            return std::vector<int>();
         }
     };
 
 
     auto readdir = [&](const std::string path) {
         std::cout << "readdir: " << path << std::endl;
+        auto attrs = getattr(path);
+        size_t max_chunks = attrs[0] % CHUNK_SIZE;
         auto path_uuid = uuid_from_str(path);
         int i = 0;
-        auto ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
         std::vector<std::string> ret_vec;
-        auto iter = ret.begin();
-        if (ret.empty()) {
-            return ret_vec;
-        }
-        do {
-            auto tmp_iter = line_end(iter);
-            ret_vec.push_back(std::string(iter, tmp_iter));
-            iter = tmp_iter + 1;
+        while (i < max_chunks) {
+            auto ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
+            auto iter = ret.begin();
+            auto it_end = ret.end();
+            while (iter < it_end) {
+                auto tmp_iter = line_end(iter);
+                ret_vec.push_back(std::string(iter, tmp_iter));
+                iter = tmp_iter + 1;
+            }
             i++;
-            ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
-        } while (!ret.empty());
+        }
         return ret_vec;
     };
 
@@ -77,7 +80,7 @@ int main(int argc, char *argv[]) {
             auto path_uuid = uuid_from_str(path);
             auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
             if (ret.size() != 0 &&
-                std::stoi(ret[0]) >= 0) {
+                std::stoi(ret[1]) == 1) {
                 return true;
             }
             return false;
@@ -215,7 +218,16 @@ int main(int argc, char *argv[]) {
     };
     
     auto mkdir = [&](const std::string path) {
+        auto path_uuid = uuid_from_str(path);
+        std::vector<std::string> attrs;
+        attrs.push_back(std::to_string(0));
+        attrs.push_back(std::to_string(2));
+        clt.send("set_attr", path_uuid, attrs);
 
+        auto cur_dir = getDirByPath(path);
+        auto filename = path.substr(cur_dir.size() + 1, path.size());
+        auto dir_attrs = getattr(cur_dir);
+        return write(cur_dir, filename, filename.size(), dir_attrs[0]);
     };
     
     auto rmdir = [&](const std::string path) {
