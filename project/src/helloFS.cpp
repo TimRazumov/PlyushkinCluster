@@ -9,8 +9,13 @@
 // include in one .cpp file
 #include "Fuse-impl.h"
 
+const int TIMEOUT = 5000;
+
 rpc::client client("127.0.0.1", 2280);
 
+void* HelloFS::init(struct fuse_conn_info*, struct fuse_config*) {
+    client.set_timeout(TIMEOUT);
+}
 
 int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
 {
