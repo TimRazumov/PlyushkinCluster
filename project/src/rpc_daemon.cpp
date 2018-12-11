@@ -97,14 +97,14 @@ int main(int argc, char *argv[]) {
         if (offset >= file_size) {
             return "";
         }
-        if (size + offset > file_size) {
-            size = file_size - offset;
+        if ((int)size + offset > file_size) {
+            size = (size_t)file_size - offset;
         }
         int max_chunks = file_size / CHUNK_SIZE; 
         size_t chunk_number = offset / CHUNK_SIZE;
         size_t local_offset = offset % CHUNK_SIZE;
         auto path_uuid = uuid_from_str(path);
-        std::string ret_str = "";
+        std::string ret_str;
         do {
             auto ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
             ret_str += std::string(ret.begin() + local_offset,
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
             auto chunk = std::vector<char>(ret.begin(), ret.begin() + 
                          std::min<int>(ret.size(), CHUNK_SIZE));
             chunk_number++;
-            clt.send("save_chunk", path_uuid, chunk_number, chunk);
+            clt.call("save_chunk", path_uuid, chunk_number, chunk);
             if (ret.size() > CHUNK_SIZE) {
                 buf = std::string(ret.begin() + CHUNK_SIZE, ret.end());
             } else {
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
             ret.clear();
         }
         attrs[0] += size;
-        clt.send("set_attr", path_uuid,
+        clt.call("set_attr", path_uuid,
                 attrs_to_string(attrs));
         return true;
     };
@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
         std::vector<std::string> attrs;
         attrs.push_back(std::to_string(0));
         attrs.push_back(std::to_string(1));
-        clt.send("set_attr", path_uuid, attrs);
+        clt.call("set_attr", path_uuid, attrs);
 
         auto cur_dir = getDirByPath(path);
         auto filename = path.substr(cur_dir.size() + 1, path.size());
@@ -174,29 +174,29 @@ int main(int argc, char *argv[]) {
                 continue;
             chunk += i;
             if (chunk.size() >= CHUNK_SIZE) {
-                clt.send("save_chunk", uuid_from_str(cur_dir), cur_chunk,
+                clt.call("save_chunk", uuid_from_str(cur_dir), cur_chunk,
                          std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE));
                 chunk.clear();
             }
         }
-        clt.send("save_chunk", uuid_from_str(cur_dir), cur_chunk,
+        clt.call("save_chunk", uuid_from_str(cur_dir), cur_chunk,
                  std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE));
     };
     
     auto delete_file = [&](const std::string path) {
-        clt.send("delete_file", uuid_from_str(path));
+        clt.call("delete_file", uuid_from_str(path));
         auto cur_dir = getDirByPath(path);
         auto dir_attrs = getattr(cur_dir);
         auto filename = path.substr(cur_dir.size() + 1, path.size()) + '\n';
         dir_attrs[0] -= filename.size();
         delete_from_dir(cur_dir, filename);
-        clt.send("set_attr", uuid_from_str(cur_dir),
+        clt.call("set_attr", uuid_from_str(cur_dir),
                  attrs_to_string(dir_attrs));
         return true;
     };
 
     auto rename = [&](const std::string from, const std::string to) {
-        clt.send("rename", uuid_from_str(from), uuid_from_str(to));
+        clt.call("rename", uuid_from_str(from), uuid_from_str(to));
         auto from_dir = getDirByPath(from);
         auto to_dir = getDirByPath(to);
         auto from_filename = from.substr(from_dir.size() + 1, from.size()) + '\n';
@@ -207,9 +207,9 @@ int main(int argc, char *argv[]) {
         delete_from_dir(from_dir, from_filename);
         from_attrs[0] -= from_filename.size();
         to_attrs[0] += to_filename.size();
-        clt.send("set_attr", uuid_from_str(from_dir),
+        clt.call("set_attr", uuid_from_str(from_dir),
                  attrs_to_string(from_attrs));
-        clt.send("set_attr", uuid_from_str(to_dir),
+        clt.call("set_attr", uuid_from_str(to_dir),
                  attrs_to_string(to_attrs));
         return true;
     };

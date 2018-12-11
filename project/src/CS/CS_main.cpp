@@ -26,10 +26,10 @@ int main(int argc, const char *argv[]) {
         std::cout << "Create directory " << CS_directory << std::endl;
     }
 
-    rpc::server this_CS(5100);
+    rpc::server this_CS(port);
 
-    // возвращает все исключения, возникшие в забинденных ф-ях в клиент
-    this_CS.suppress_exceptions(true);
+    // возвращает все исключения, возникшие в забинденных ф-ях в клиент TODO: включить когда настанет время
+    // this_CS.suppress_exceptions(true);
 
     this_CS.bind(
             "save_chunk", [=](const std::string &chunk_UUID, const std::vector<char> &chunk_content) {
