@@ -185,30 +185,26 @@ int main(int argc, char *argv[]) {
             if (i == filename)
                 continue;
             chunk += i;
-            if (chunk.size() >= CHUNK_SIZE) {
-                clt.call("save_chunk", uuid_from_str(cur_dir), cur_chunk,
-                         std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE));
-                chunk.clear();
-            }
         }
-        clt.call("save_chunk", uuid_from_str(cur_dir), cur_chunk,
-                 std::vector<char>(chunk.begin(), chunk.begin() + CHUNK_SIZE));
+        return chunk;
     };
     
     auto delete_file = [&](const std::string path) {
-        clt.call("delete_file", uuid_from_str(path));
         auto cur_dir = getDirByPath(path);
+        auto filename = path.substr(cur_dir.size(), path.size());
         auto dir_attrs = getattr(cur_dir);
-        auto filename = path.substr(cur_dir.size(), path.size()) + '\n';
-        dir_attrs[0] -= filename.size();
-        delete_from_dir(cur_dir, filename);
+        auto chunk = delete_from_dir(cur_dir, filename);
+        dir_attrs[0] = chunk.size();
+        write(cur_dir, chunk, dir_attrs[0], 0);
         clt.call("set_attr", uuid_from_str(cur_dir),
                  attrs_to_string(dir_attrs));
+        clt.call("delete_file", uuid_from_str(path));
         return true;
     };
 
     auto rename = [&](const std::string from, const std::string to) {
-        clt.call("rename", uuid_from_str(from), uuid_from_str(to));
+        std::cout << "rename: " << from << " " << to  << std::endl;
+        
         auto from_dir = getDirByPath(from);
         auto to_dir = getDirByPath(to);
         auto from_filename = from.substr(from_dir.size(), from.size()) + '\n';
@@ -223,6 +219,7 @@ int main(int argc, char *argv[]) {
                  attrs_to_string(from_attrs));
         clt.call("set_attr", uuid_from_str(to_dir),
                  attrs_to_string(to_attrs));
+        clt.call("rename", uuid_from_str(from), uuid_from_str(to));
         return true;
     };
     
