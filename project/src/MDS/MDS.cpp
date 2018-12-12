@@ -254,10 +254,58 @@ void MDS::binding() {
                 return CS.call("get_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num))).as<std::vector<char>>();
             }
     );
-// TODO: rename_file
+
     this_server.bind(
             "rename_file", [=](const std::string &old_file_UUID, const std::string &new_file_UUID) {
+                add_log(MDS_directory, "rename_file");
 
+                if (known_CS.empty()) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                std::ifstream meta_data_in(MDS_directory + old_file_UUID);
+                if (!meta_data_in) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                while (!meta_data_in.eof()) {
+                    std::string buffer;
+                    meta_data_in >> buffer;
+                    if (buffer == META_DATA_SEPARATOR) {
+                        break;
+                    }
+                }
+
+                while (true) {
+                    std::vector<size_t> CS_with_chunk;
+                    size_t chunk_num;
+                    size_t server_num;
+
+                    meta_data_in >> chunk_num;
+
+                    if (meta_data_in.eof()) {
+                        break;
+                    }
+
+                    for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
+                        meta_data_in >> server_num;
+                        CS_with_chunk.push_back(server_num);
+                    }
+
+                    for (const auto &srv : CS_with_chunk) {
+                        {
+                            rpc::client CS(known_CS[srv].get_info().addr, known_CS[srv].get_info().port);
+                            CS.set_timeout(data.get_info().timeout);
+                            CS.call("rename_chunk", uuid_from_str(old_file_UUID + std::to_string(chunk_num)), new_file_UUID + std::to_string(chunk_num));
+                        }
+                    }
+
+                    CS_with_chunk.clear();
+                }
+
+                meta_data_in.close();
+
+                boost::filesystem::rename(old_file_UUID, new_file_UUID);
             }
     );
 
