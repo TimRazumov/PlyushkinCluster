@@ -260,10 +260,69 @@ void MDS::binding() {
 
             }
     );
-    // TODO: delete_chunk
+
     this_server.bind(
             "delete_chunk", [=](const std::string &file_UUID, const size_t &chunk_num) {
+                add_log(MDS_directory, "delete_chunk");
 
+                if (known_CS.empty()) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                std::ifstream meta_data_in(MDS_directory + file_UUID);
+                if (!meta_data_in) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                while (!meta_data_in.eof()) {
+                    std::string buffer;
+                    meta_data_in >> buffer;
+                    if (buffer == META_DATA_SEPARATOR) {
+                        break;
+                    }
+                }
+
+                std::vector<size_t> CS_with_chunk;
+                while (true) {
+                    size_t num_in_file;
+
+                    // считать элемент, отвечающий за номер чанка
+                    meta_data_in >> num_in_file;
+
+                    if (meta_data_in.eof()) {
+                        break;
+                    }
+
+                    if (num_in_file == chunk_num) {
+                        // запомнить номера серверов, где хранится данный чанк
+                        for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
+                            meta_data_in >> num_in_file;
+                            CS_with_chunk.push_back(num_in_file);
+                        }
+                        break;
+                    } else {
+                        // скипнуть ненужную информацию
+                        for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
+                            meta_data_in >> num_in_file;
+                        }
+                    }
+                }
+
+                meta_data_in.close();
+
+                if (CS_with_chunk.empty()) {
+                    // действия в случае, если чанка с таким номером не существует
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                } else {
+                    // действия в случае, если чанк с таким номером существует
+                    for (auto const &i : CS_with_chunk) {
+                        {
+                            rpc::client CS(known_CS[i].get_info().addr, known_CS[i].get_info().port);
+                            CS.set_timeout(data.get_info().timeout);
+                            CS.call("delete_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)));
+                        }
+                    }
+                }
             }
     );
 
