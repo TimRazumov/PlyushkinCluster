@@ -56,11 +56,14 @@ int main(int argc, char *argv[]) {
     auto readdir = [&](const std::string path) {
         std::cout << "readdir: " << path << std::endl;
         auto attrs = getattr(path);
-        size_t max_chunks = attrs[0] % CHUNK_SIZE;
+        std::vector<std::string> ret_vec;
+        if (attrs[0] == 0) {
+            return ret_vec;
+        }
+        size_t max_chunks = attrs[0] / CHUNK_SIZE;
         auto path_uuid = uuid_from_str(path);
         int i = 0;
-        std::vector<std::string> ret_vec;
-        while (i < max_chunks) {
+        while (i <= max_chunks) {
             auto ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
             auto iter = ret.begin();
             auto it_end = ret.end();
