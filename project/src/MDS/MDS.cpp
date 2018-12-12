@@ -165,6 +165,7 @@ void MDS::binding() {
                             meta_data_in >> num_in_file;
                             CS_with_chunk.push_back(num_in_file);
                         }
+                        break;
                     } else {
                         // скипнуть ненужную информацию
                         for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
@@ -253,13 +254,180 @@ void MDS::binding() {
                 return CS.call("get_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num))).as<std::vector<char>>();
             }
     );
-    // TODO: rename
-    this_server.bind(
-            "rename", [=](const std::string &old_file_UUID, const std::string &new_file_UUID) {
 
+    this_server.bind(
+            "rename_file", [=](const std::string &old_file_UUID, const std::string &new_file_UUID) {
+                add_log(MDS_directory, "rename_file");
+
+                if (known_CS.empty()) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                std::ifstream meta_data_in(MDS_directory + old_file_UUID);
+                if (!meta_data_in) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                while (!meta_data_in.eof()) {
+                    std::string buffer;
+                    meta_data_in >> buffer;
+                    if (buffer == META_DATA_SEPARATOR) {
+                        break;
+                    }
+                }
+
+                while (true) {
+                    std::vector<size_t> CS_with_chunk;
+                    size_t chunk_num;
+                    size_t server_num;
+
+                    meta_data_in >> chunk_num;
+
+                    if (meta_data_in.eof()) {
+                        break;
+                    }
+
+                    for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
+                        meta_data_in >> server_num;
+                        CS_with_chunk.push_back(server_num);
+                    }
+
+                    for (const auto &srv : CS_with_chunk) {
+                        {
+                            rpc::client CS(known_CS[srv].get_info().addr, known_CS[srv].get_info().port);
+                            CS.set_timeout(data.get_info().timeout);
+                            CS.call("rename_chunk", uuid_from_str(old_file_UUID + std::to_string(chunk_num))
+                                                  , uuid_from_str(new_file_UUID + std::to_string(chunk_num)));
+                        }
+                    }
+
+                    CS_with_chunk.clear();
+                }
+
+                meta_data_in.close();
+
+                boost::filesystem::rename(MDS_directory + old_file_UUID, MDS_directory + new_file_UUID);
             }
     );
-    // TODO: delete(file_UUID)
+
+    this_server.bind(
+            "delete_chunk", [=](const std::string &file_UUID, const size_t &chunk_num) {
+                add_log(MDS_directory, "delete_chunk");
+
+                if (known_CS.empty()) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                std::ifstream meta_data_in(MDS_directory + file_UUID);
+                if (!meta_data_in) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                while (!meta_data_in.eof()) {
+                    std::string buffer;
+                    meta_data_in >> buffer;
+                    if (buffer == META_DATA_SEPARATOR) {
+                        break;
+                    }
+                }
+
+                std::vector<size_t> CS_with_chunk;
+                while (true) {
+                    size_t num_in_file;
+
+                    // считать элемент, отвечающий за номер чанка
+                    meta_data_in >> num_in_file;
+
+                    if (meta_data_in.eof()) {
+                        break;
+                    }
+
+                    if (num_in_file == chunk_num) {
+                        // запомнить номера серверов, где хранится данный чанк
+                        for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
+                            meta_data_in >> num_in_file;
+                            CS_with_chunk.push_back(num_in_file);
+                        }
+                        break;
+                    } else {
+                        // скипнуть ненужную информацию
+                        for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
+                            meta_data_in >> num_in_file;
+                        }
+                    }
+                }
+
+                meta_data_in.close();
+
+                if (CS_with_chunk.empty()) {
+                    // действия в случае, если чанка с таким номером не существует
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                } else {
+                    // действия в случае, если чанк с таким номером существует
+                    for (auto const &i : CS_with_chunk) {
+                        {
+                            rpc::client CS(known_CS[i].get_info().addr, known_CS[i].get_info().port);
+                            CS.set_timeout(data.get_info().timeout);
+                            CS.call("delete_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)));
+                        }
+                    }
+                }
+            }
+    );
+
+    this_server.bind(
+            "delete_file", [=](const std::string &file_UUID) {
+                add_log(MDS_directory, "delete_file");
+
+                if (known_CS.empty()) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                std::ifstream meta_data_in(MDS_directory + file_UUID);
+                if (!meta_data_in) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
+                while (!meta_data_in.eof()) {
+                    std::string buffer;
+                    meta_data_in >> buffer;
+                    if (buffer == META_DATA_SEPARATOR) {
+                        break;
+                    }
+                }
+
+                while (true) {
+                    std::vector<size_t> CS_with_chunk;
+                    size_t chunk_num;
+                    size_t server_num;
+
+                    meta_data_in >> chunk_num;
+
+                    if (meta_data_in.eof()) {
+                        break;
+                    }
+
+                    for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
+                        meta_data_in >> server_num;
+                        CS_with_chunk.push_back(server_num);
+                    }
+
+                    for (const auto &srv : CS_with_chunk) {
+                        {
+                            rpc::client CS(known_CS[srv].get_info().addr, known_CS[srv].get_info().port);
+                            CS.set_timeout(data.get_info().timeout);
+                            CS.call("delete_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)));
+                        }
+                    }
+
+                    CS_with_chunk.clear();
+                }
+
+                meta_data_in.close();
+
+                boost::filesystem::remove(MDS_directory + file_UUID);
+            }
+    );
 }
 
 void MDS::add_CS(const std::string &addr, uint16_t port) {
