@@ -22,8 +22,8 @@ MDS::MDS(const uint16_t &port)
     , copy_count(2)
     , turn_of_servers(0)
 {
-    // возвращает все исключения, возникшие в забинденных ф-ях в клиент
-    this_server.suppress_exceptions(true);
+    // возвращает все исключения, возникшие в забинденных ф-ях в клиент TODO: включить когда настанет время
+//    this_server.suppress_exceptions(true);
 
     MDS_directory = getenv("HOME");
     MDS_directory += "/plyushkincluster/servers/MDS/" + std::to_string(port) + "/";
@@ -74,13 +74,14 @@ void MDS::binding() {
                 while (!meta_data_in.eof()) {
                     meta_data_in >> buffer;
                     if (buffer == META_DATA_SEPARATOR) {
+                        meta_data_in >> buffer;
                         break;
                     }
                 }
 
                 while (!meta_data_in.eof()) {
-                    meta_data_in >> buffer;
                     chunk_data.push_back(buffer);
+                    meta_data_in >> buffer;
                 }
 
                 meta_data_in.close();
@@ -90,7 +91,7 @@ void MDS::binding() {
                     meta_data_out << field << " ";
                 }
 
-                meta_data_out << std::string(META_DATA_SEPARATOR);
+                meta_data_out << std::string(META_DATA_SEPARATOR) << " ";
 
                 for (const auto &field : chunk_data) {
                     meta_data_out << field << " ";
@@ -160,13 +161,13 @@ void MDS::binding() {
 
                     if (num_in_file == chunk_num) {
                         // запомнить номера серверов, где хранится данный чанк
-                        for (size_t i = 0; i < copy_count; ++i) {
+                        for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
                             meta_data_in >> num_in_file;
                             CS_with_chunk.push_back(num_in_file);
                         }
                     } else {
                         // скипнуть ненужную информацию
-                        for (size_t i = 0; i < copy_count; ++i) {
+                        for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
                             meta_data_in >> num_in_file;
                         }
                     }
@@ -176,20 +177,19 @@ void MDS::binding() {
 
                 if (CS_with_chunk.empty()) {
                     // действия в случае, если чанка с таким номером не существует
-//                    std::vector<rpc::client> CS;
                     std::ofstream meta_data_out(MDS_directory + file_UUID, std::ios_base::app);
 
-                    meta_data_out << chunk_num;
+                    meta_data_out << chunk_num << " ";
 
                     for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                        rpc::client CS(known_CS[turn_of_servers].get_info().addr, known_CS[turn_of_servers].get_info().port);
-                        CS.set_timeout(data.get_info().timeout);
-                        CS.send("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
-//                        CS.emplace_back(known_CS[turn_of_servers].get_info().addr, known_CS[turn_of_servers].get_info().port);
-//                        CS.back().set_timeout(data.get_info().timeout);
-//                        CS.back().send("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
-
-                        meta_data_out << turn_of_servers;
+                        add_log(MDS_directory, "-new chunk");
+                        {
+                            rpc::client CS(known_CS[turn_of_servers].get_info().addr,
+                                           known_CS[turn_of_servers].get_info().port);
+                            CS.set_timeout(data.get_info().timeout);
+                            CS.call("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
+                        }
+                        meta_data_out << turn_of_servers << " ";
 
                         turn_of_servers = (turn_of_servers + 1) % known_CS.size();
                     }
@@ -197,15 +197,13 @@ void MDS::binding() {
                     meta_data_out.close();
                 } else {
                     // действия в случае, если чанк с таким номером существует
-//                    std::vector<rpc::client> CS;
-
                     for (auto const &i : CS_with_chunk) {
-                        rpc::client CS(known_CS[i].get_info().addr, known_CS[i].get_info().port);
-                        CS.set_timeout(data.get_info().timeout);
-                        CS.send("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
-//                        CS.emplace_back(known_CS[i].get_info().addr, known_CS[i].get_info().port);
-//                        CS.back().set_timeout(data.get_info().timeout);
-//                        CS.back().send("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
+                        add_log(MDS_directory, "-update chunk");
+                        {
+                            rpc::client CS(known_CS[i].get_info().addr, known_CS[i].get_info().port);
+                            CS.set_timeout(data.get_info().timeout);
+                            CS.call("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
+                        }
                     }
                 }
             }

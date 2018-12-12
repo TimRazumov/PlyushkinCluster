@@ -10,7 +10,7 @@
 #include "MDS.h"
 #include "utils.hpp"
 
-
+// TODO: обрабатывать, добавлен ли уже такой сервер или нет
 const std::string help = "\nYou can use:\n"
                          "help\n"
                          "al - add local CS\n"
