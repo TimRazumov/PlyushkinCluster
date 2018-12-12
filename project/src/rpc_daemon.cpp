@@ -131,22 +131,29 @@ int main(int argc, char *argv[]) {
         return ret_str;
     };
 
-    auto write = [&](const std::string path, std::string buf,
+    auto write = [&](const std::string path, std::vector<char> buf,
                      size_t size, off_t offset) {
-        std::cout << "write: " << path << " " << buf << " " << size << " " << offset << std::endl;
+        std::cout << "write: ";
+        std::cout << path << " ";
+        std::cout << buf.size() << " ";
+        std::cout << size << " ";
+        std::cout << offset << std::endl;
         auto attrs = getattr(path);
         size_t file_size = attrs[0];
-        attrs[0] = offset+size;
+        attrs[0] = offset + size;
+        auto path_uuid = uuid_from_str(path);
+        clt.call("set_attr", path_uuid,
+                attrs_to_string(attrs));
         size_t max_chunks = file_size / CHUNK_SIZE; 
         size_t chunk_number = offset / CHUNK_SIZE;
         size_t loc_offset = offset % CHUNK_SIZE;
-        auto path_uuid = uuid_from_str(path);
         std::vector<char> ret;
         if (file_size != 0 && chunk_number <= max_chunks) {
             ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
         }
         ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
-        ret = std::vector<char>(ret.begin(), ret.begin() + loc_offset + buf.size());
+        //ret = std::vector<char>(ret.begin(), ret.begin() + loc_offset + size);
+        ret.resize(loc_offset + size);
         size_t ret_chunks_count = ret.size() / CHUNK_SIZE;
         for (size_t i = 0; i <= ret_chunks_count; i++) {
             auto chunk = std::vector<char>(ret.begin(),
@@ -157,8 +164,7 @@ int main(int argc, char *argv[]) {
                 ret = std::vector<char>(ret.begin() + CHUNK_SIZE, ret.end());
             }
         }
-        clt.call("set_attr", path_uuid,
-                attrs_to_string(attrs));
+        std::cout << "write end" << std::endl;
         return size;
     };
 
@@ -173,7 +179,7 @@ int main(int argc, char *argv[]) {
         auto cur_dir = getDirByPath(path);
         auto filename = path.substr(cur_dir.size(), path.size()) + '\n';
         auto dir_attrs = getattr(cur_dir);
-        return write(cur_dir, filename, filename.size(), dir_attrs[0]);
+        return write(cur_dir, std::vector<char>(filename.begin(), filename.end()), filename.size(), dir_attrs[0]);
     };
 
     auto delete_from_dir = [&](std::string cur_dir, std::string filename) {
@@ -184,7 +190,7 @@ int main(int argc, char *argv[]) {
         for (auto i : list_of_files) {
             if (i == filename)
                 continue;
-            chunk += i;
+            chunk += i + '\n';
         }
         return chunk;
     };
@@ -195,9 +201,8 @@ int main(int argc, char *argv[]) {
         auto dir_attrs = getattr(cur_dir);
         auto chunk = delete_from_dir(cur_dir, filename);
         dir_attrs[0] = chunk.size();
-        write(cur_dir, chunk, dir_attrs[0], 0);
-        clt.call("set_attr", uuid_from_str(cur_dir),
-                 attrs_to_string(dir_attrs));
+        write(cur_dir, std::vector<char>(chunk.begin(), chunk.end()), dir_attrs[0], 0);
+        clt.call("set_attr", uuid_from_str(cur_dir), attrs_to_string(dir_attrs));
         clt.call("delete_file", uuid_from_str(path));
         return true;
     };
@@ -211,7 +216,7 @@ int main(int argc, char *argv[]) {
         auto to_filename = to.substr(to_dir.size(), to.size()) + '\n';
         auto from_attrs = getattr(from);
         auto to_attrs = getattr(to);
-        write(to, to_filename, to_filename.size(), to_attrs[0]);
+        write(to, std::vector<char>(to_filename.begin(), to_filename.end()), to_filename.size(), to_attrs[0]);
         delete_from_dir(from_dir, from_filename);
         from_attrs[0] -= from_filename.size();
         to_attrs[0] += to_filename.size();
@@ -223,7 +228,7 @@ int main(int argc, char *argv[]) {
         return true;
     };
     
-    auto mkdir = [&](const std::string path) {
+    /*auto mkdir = [&](const std::string path) {
         auto path_uuid = uuid_from_str(path);
         std::vector<std::string> attrs;
         attrs.push_back(std::to_string(0));
@@ -233,8 +238,8 @@ int main(int argc, char *argv[]) {
         auto cur_dir = getDirByPath(path);
         auto filename = path.substr(cur_dir.size() + 1, path.size());
         auto dir_attrs = getattr(cur_dir);
-        return write(cur_dir, filename, filename.size(), dir_attrs[0]);
-    };
+        return write(cur_dir, std::vector<char>(filename.begin(), filename.end()), filename.size(), dir_attrs[0]);
+    };*/
     
     auto rmdir = [&](const std::string path) {
 
@@ -250,8 +255,8 @@ int main(int argc, char *argv[]) {
     srv.bind("mknod", mknod);
     srv.bind("delete_file", delete_file);
     srv.bind("rename", rename);
-    srv.bind("mkdir", mkdir);
-    srv.bind("rmdir", rmdir);
+    //srv.bind("mkdir", mkdir);
+    //srv.bind("rmdir", rmdir);
     srv.bind("init", init);
 
     srv.run();

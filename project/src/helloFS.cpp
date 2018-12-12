@@ -100,8 +100,12 @@ int HelloFS::write(const char *path, const char *buf, size_t size,
                    off_t offset, struct fuse_file_info *) {
     std::cout << "write: " << path << " " << buf << " "
               << size << " " << offset << std::endl;
+    std::vector<char> my_buf(size);
+    for (size_t i = 0; i < size; i++) {
+        my_buf[i] = buf[i];
+    }
     int len = client.call("write", path,
-                          buf, size, offset).as<int>();
+                          my_buf, size, offset).as<int>();
     return len;
 }
 
