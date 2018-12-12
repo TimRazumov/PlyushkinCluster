@@ -31,7 +31,7 @@ public:
                   struct fuse_file_info *fi);
   
   static int mknod(const char *, mode_t, dev_t);
-  
+
   static int write(const char *, const char*, size_t, off_t,
                    struct fuse_file_info *);
 

@@ -9,7 +9,7 @@
 // include in one .cpp file
 #include "Fuse-impl.h"
 
-const int TIMEOUT = 5000;
+const int TIMEOUT = 10000;
 
 rpc::client client("127.0.0.1", 2280);
 

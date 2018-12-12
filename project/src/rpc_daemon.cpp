@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     if (argc != 2) {
         return -1;
     }
-
+    
     rpc::server srv(LOCAL_PORT);
 
     rpc::client clt(argv[1], MDS_PORT);
@@ -125,23 +125,24 @@ int main(int argc, char *argv[]) {
 
     auto write = [&](const std::string path, std::string buf,
                      size_t size, off_t offset) {
-        std::cout << "write: " << path << std::endl;
+        std::cout << "write: " << path << " " << buf << " " << size << " " << offset << std::endl;
         auto attrs = getattr(path);
         size_t file_size = attrs[0];
         int max_chunks = file_size / CHUNK_SIZE; 
         int chunk_number = offset / CHUNK_SIZE;
         int loc_offset = offset % CHUNK_SIZE;
+        std::cout << loc_offset << " " << max_chunks << " " << chunk_number << std::endl;
         auto path_uuid = uuid_from_str(path);
         std::vector<char> ret;
         while (!buf.empty()) {
-            if (chunk_number <= max_chunks) {
+            if (attrs[0] != 0 && chunk_number <= max_chunks) {
                 ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
             }
             ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
             auto chunk = std::vector<char>(ret.begin(), ret.begin() + 
                          std::min<int>(ret.size(), CHUNK_SIZE));
-            chunk_number++;
             clt.call("save_chunk", path_uuid, chunk_number, chunk);
+            chunk_number++;
             if (ret.size() > CHUNK_SIZE) {
                 buf = std::string(ret.begin() + CHUNK_SIZE, ret.end());
             } else {
@@ -153,7 +154,7 @@ int main(int argc, char *argv[]) {
         attrs[0] += size;
         clt.call("set_attr", path_uuid,
                 attrs_to_string(attrs));
-        return true;
+        return size;
     };
 
 
@@ -225,7 +226,7 @@ int main(int argc, char *argv[]) {
         std::vector<std::string> attrs;
         attrs.push_back(std::to_string(0));
         attrs.push_back(std::to_string(2));
-        clt.send("set_attr", path_uuid, attrs);
+        clt.call("set_attr", path_uuid, attrs);
 
         auto cur_dir = getDirByPath(path);
         auto filename = path.substr(cur_dir.size() + 1, path.size());
