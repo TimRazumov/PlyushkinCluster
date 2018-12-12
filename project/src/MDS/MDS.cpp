@@ -296,7 +296,8 @@ void MDS::binding() {
                         {
                             rpc::client CS(known_CS[srv].get_info().addr, known_CS[srv].get_info().port);
                             CS.set_timeout(data.get_info().timeout);
-                            CS.call("rename_chunk", uuid_from_str(old_file_UUID + std::to_string(chunk_num)), new_file_UUID + std::to_string(chunk_num));
+                            CS.call("rename_chunk", uuid_from_str(old_file_UUID + std::to_string(chunk_num))
+                                                  , uuid_from_str(new_file_UUID + std::to_string(chunk_num)));
                         }
                     }
 
@@ -305,7 +306,7 @@ void MDS::binding() {
 
                 meta_data_in.close();
 
-                boost::filesystem::rename(old_file_UUID, new_file_UUID);
+                boost::filesystem::rename(MDS_directory + old_file_UUID, MDS_directory + new_file_UUID);
             }
     );
 
@@ -424,7 +425,7 @@ void MDS::binding() {
 
                 meta_data_in.close();
 
-                boost::filesystem::remove(file_UUID);
+                boost::filesystem::remove(MDS_directory + file_UUID);
             }
     );
 }

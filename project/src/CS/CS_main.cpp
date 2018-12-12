@@ -68,7 +68,7 @@ int main(int argc, const char *argv[]) {
             "rename_chunk", [=](const std::string &old_UUID, const std::string &new_UUID) {
                 add_log(CS_directory, "rename_chunk");
 
-                boost::filesystem::rename(old_UUID, new_UUID);
+                boost::filesystem::rename(CS_directory + old_UUID, CS_directory + new_UUID);
             }
     );
 
