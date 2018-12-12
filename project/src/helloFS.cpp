@@ -31,8 +31,7 @@ int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info
     std::cout << "getattr: " << path << std::endl;
     auto tmp = client.call("getattr", path).as<std::vector<int>>();
     if (tmp.empty()) {
-        stbuf->st_nlink = 0;
-        return -errno;
+        return -ENOENT;
     }
 	memset(stbuf, 0, sizeof(struct stat));
 	if (tmp[1] > 1) {

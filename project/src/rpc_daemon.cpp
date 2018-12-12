@@ -11,18 +11,17 @@
 
 const int TIMEOUT = 10000;
 const int LOCAL_PORT = 2280;
-const int MDS_PORT = 5000;
 constexpr size_t CHUNK_SIZE = 2*1024*1024;
 
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
+    if (argc != 3) {
         return -1;
     }
     
     rpc::server srv(LOCAL_PORT);
 
-    rpc::client clt(argv[1], MDS_PORT);
+    rpc::client clt(argv[1], std::stoi(argv[2]));
     
     clt.set_timeout(TIMEOUT);
 
@@ -132,10 +131,9 @@ int main(int argc, char *argv[]) {
         size_t max_chunks = file_size / CHUNK_SIZE; 
         size_t chunk_number = offset / CHUNK_SIZE;
         size_t loc_offset = offset % CHUNK_SIZE;
-        std::cout << loc_offset << " " << max_chunks << " " << chunk_number << std::endl;
         auto path_uuid = uuid_from_str(path);
         std::vector<char> ret;
-        if (attrs[0] != 0 && chunk_number <= max_chunks) {
+        if (file_size != 0 && chunk_number <= max_chunks) {
             ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
         }
         ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
@@ -156,7 +154,7 @@ int main(int argc, char *argv[]) {
     };
 
 
-    auto mknod = [&](const std::string path) {
+    auto mknod = [&](const std::string path) -> bool {
         auto path_uuid = uuid_from_str(path);
         std::vector<std::string> attrs;
         attrs.push_back(std::to_string(0));
@@ -164,7 +162,7 @@ int main(int argc, char *argv[]) {
         clt.call("set_attr", path_uuid, attrs);
 
         auto cur_dir = getDirByPath(path);
-        auto filename = path.substr(cur_dir.size() + 1, path.size());
+        auto filename = path.substr(cur_dir.size(), path.size()) + '\n';
         auto dir_attrs = getattr(cur_dir);
         return write(cur_dir, filename, filename.size(), dir_attrs[0]);
     };

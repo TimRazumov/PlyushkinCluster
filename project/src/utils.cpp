@@ -25,7 +25,8 @@ std::string getDirByPath(const std::string& path) {
         bias++;
         iter--;
     }
-    return path.substr(0, path.size() - bias - 1);
+    auto ret = path.substr(0, path.size() - bias);
+    return ret;
 }
 
 std::string uuid_from_str(std::string const &path) {
