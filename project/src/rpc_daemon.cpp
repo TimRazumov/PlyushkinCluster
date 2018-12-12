@@ -199,7 +199,7 @@ int main(int argc, char *argv[]) {
         clt.call("delete_file", uuid_from_str(path));
         auto cur_dir = getDirByPath(path);
         auto dir_attrs = getattr(cur_dir);
-        auto filename = path.substr(cur_dir.size() + 1, path.size()) + '\n';
+        auto filename = path.substr(cur_dir.size(), path.size()) + '\n';
         dir_attrs[0] -= filename.size();
         delete_from_dir(cur_dir, filename);
         clt.call("set_attr", uuid_from_str(cur_dir),
@@ -211,8 +211,8 @@ int main(int argc, char *argv[]) {
         clt.call("rename", uuid_from_str(from), uuid_from_str(to));
         auto from_dir = getDirByPath(from);
         auto to_dir = getDirByPath(to);
-        auto from_filename = from.substr(from_dir.size() + 1, from.size()) + '\n';
-        auto to_filename = to.substr(to_dir.size() + 1, to.size()) + '\n';
+        auto from_filename = from.substr(from_dir.size(), from.size()) + '\n';
+        auto to_filename = to.substr(to_dir.size(), to.size()) + '\n';
         auto from_attrs = getattr(from);
         auto to_attrs = getattr(to);
         write(to, to_filename, to_filename.size(), to_attrs[0]);
