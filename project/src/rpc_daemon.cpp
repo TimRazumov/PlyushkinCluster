@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
         }
         size_t max_chunks = attrs[0] / CHUNK_SIZE;
         auto path_uuid = uuid_from_str(path);
-        int i = 0;
+        size_t i = 0;
         while (i <= max_chunks) {
             auto ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
             auto iter = ret.begin();
@@ -99,14 +99,14 @@ int main(int argc, char *argv[]) {
 
     auto read = [&](const std::string path, size_t size, off_t offset)->std::string {
         std::cout << "read: " << path << std::endl;
-        int file_size = getattr(path)[0];
+        size_t file_size = getattr(path)[0];
         if (offset >= file_size) {
             return "";
         }
         if ((int)size + offset > file_size) {
             size = (size_t)file_size - offset;
         }
-        int max_chunks = file_size / CHUNK_SIZE; 
+        size_t max_chunks = file_size / CHUNK_SIZE; 
         size_t chunk_number = offset / CHUNK_SIZE;
         size_t local_offset = offset % CHUNK_SIZE;
         auto path_uuid = uuid_from_str(path);
@@ -128,30 +128,28 @@ int main(int argc, char *argv[]) {
         std::cout << "write: " << path << " " << buf << " " << size << " " << offset << std::endl;
         auto attrs = getattr(path);
         size_t file_size = attrs[0];
-        int max_chunks = file_size / CHUNK_SIZE; 
-        int chunk_number = offset / CHUNK_SIZE;
-        int loc_offset = offset % CHUNK_SIZE;
+        attrs[0] = offset+size;
+        size_t max_chunks = file_size / CHUNK_SIZE; 
+        size_t chunk_number = offset / CHUNK_SIZE;
+        size_t loc_offset = offset % CHUNK_SIZE;
         std::cout << loc_offset << " " << max_chunks << " " << chunk_number << std::endl;
         auto path_uuid = uuid_from_str(path);
         std::vector<char> ret;
-        while (!buf.empty()) {
-            if (attrs[0] != 0 && chunk_number <= max_chunks) {
-                ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
-            }
-            ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
-            auto chunk = std::vector<char>(ret.begin(), ret.begin() + 
-                         std::min<int>(ret.size(), CHUNK_SIZE));
+        if (attrs[0] != 0 && chunk_number <= max_chunks) {
+            ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
+        }
+        ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
+        ret = std::vector<char>(ret.begin(), ret.begin() + loc_offset + buf.size());
+        size_t ret_chunks_count = ret.size() / CHUNK_SIZE;
+        for (size_t i = 0; i <= ret_chunks_count; i++) {
+            auto chunk = std::vector<char>(ret.begin(),
+                         ret.begin() + std::min<int>(ret.size(), CHUNK_SIZE));
             clt.call("save_chunk", path_uuid, chunk_number, chunk);
             chunk_number++;
             if (ret.size() > CHUNK_SIZE) {
-                buf = std::string(ret.begin() + CHUNK_SIZE, ret.end());
-            } else {
-                buf.clear();
+                ret = std::vector<char>(ret.begin() + CHUNK_SIZE, ret.end());
             }
-            loc_offset = 0;
-            ret.clear();
         }
-        attrs[0] += size;
         clt.call("set_attr", path_uuid,
                 attrs_to_string(attrs));
         return size;
