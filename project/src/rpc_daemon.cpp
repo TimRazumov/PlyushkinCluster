@@ -24,7 +24,16 @@ int main(int argc, char *argv[]) {
     rpc::client clt(argv[1], std::stoi(argv[2]));
     
     clt.set_timeout(TIMEOUT);
-
+    
+    auto init = [&]() {
+        if (!clt.call("is_meta_exist", uuid_from_str("/")).as<bool>()) {
+            std::vector<int> attrs;
+            attrs.push_back(0);
+            attrs.push_back(2);
+            clt.call("set_attr", uuid_from_str("/"), attrs_to_string(attrs));
+        }
+    };
+    
     auto access = [&](const std::string path) {
         try {
             std::cout << "access: " << path << std::endl;
@@ -246,6 +255,7 @@ int main(int argc, char *argv[]) {
     srv.bind("rename", rename);
     srv.bind("mkdir", mkdir);
     srv.bind("rmdir", rmdir);
+    srv.bind("init", init);
 
     srv.run();
 }

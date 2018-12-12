@@ -15,6 +15,7 @@ rpc::client client("127.0.0.1", 2280);
 
 void* HelloFS::init(struct fuse_conn_info*, struct fuse_config*) {
     client.set_timeout(TIMEOUT);
+    client.call("init");
 }
 
 int HelloFS::access(const char* path, int) {
