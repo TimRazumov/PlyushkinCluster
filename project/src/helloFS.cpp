@@ -83,17 +83,17 @@ int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
 	if (!(client.call("isFile", path).as<bool>()))
 		return -ENOENT;
 
-	auto data = client.call("read", path, size, offset).as<std::string>();
-	size_t len =  data.size();
+	auto data = client.call("read", path, size, offset).as<std::vector<char>>();
+	size = data.size();
 	/*if ((size_t)offset < len) {
 		if (offset + size > len)
 			size = len - offset;
 		memcpy(buf, hello_str.c_str() + offset, size);
 	} else
 		size = 0;*/
-    memcpy(buf, data.c_str(), len);
+    memcpy(buf, data.data(), size);
 
-	return len;
+	return size;
 }
 
 int HelloFS::write(const char *path, const char *buf, size_t size,

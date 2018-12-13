@@ -25,7 +25,21 @@ std::string getDirByPath(const std::string& path) {
         bias++;
         iter--;
     }
-    auto ret = path.substr(0, path.size() - bias);
+    auto ret = path.substr(0, path.size() - bias - 1);
+    if (ret.empty()) {
+        return "/";
+    }
+    return ret;
+}
+
+std::string nameByPath(const std::string& path) {
+    int bias = 0;
+    auto iter = path.end() - 1;
+    while (*iter != '/') {
+        bias++;
+        iter--;
+    }
+    auto ret = std::string(iter+1, path.end());
     return ret;
 }
 
