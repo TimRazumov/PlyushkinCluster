@@ -24,7 +24,7 @@
 std::string uuid_from_str(std::string const &path);
 int min(int a, int b);
 std::vector<char>::iterator line_end(std::vector<char>::iterator it);
-std::vector<std::string> attrs_to_string(std::vector<int> attrs);
+std::vector<std::string> attrs_to_string(std::vector<unsigned int> attrs);
 std::string getDirByPath(const std::string &path);
 std::string nameByPath(const std::string &path);
 

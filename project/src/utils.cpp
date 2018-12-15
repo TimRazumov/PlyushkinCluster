@@ -10,7 +10,7 @@ std::vector<char>::iterator line_end(std::vector<char>::iterator it) {
     return it;
 }
 
-std::vector<std::string> attrs_to_string(std::vector<int> attrs) {
+std::vector<std::string> attrs_to_string(std::vector<unsigned int> attrs) {
     std::vector<std::string> set_attrs;
     for (const auto &attr : attrs) {
         set_attrs.push_back(std::to_string(attr));

@@ -6,6 +6,7 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/name_generator.hpp>
+#include <sys/stat.h>
 
 #include "utils.hpp"
 
@@ -27,9 +28,7 @@ int main(int argc, char *argv[]) {
     
     auto init = [&]() {
         if (!clt.call("is_meta_exist", uuid_from_str("/")).as<bool>()) {
-            std::vector<int> attrs;
-            attrs.push_back(0);
-            attrs.push_back(2);
+            std::vector<unsigned int> attrs = {0, 2, 5, 5, 7};
             clt.call("set_attr", uuid_from_str("/"), attrs_to_string(attrs));
         }
     };
@@ -45,18 +44,18 @@ int main(int argc, char *argv[]) {
         }
     };
 
-    auto getattr = [&](const std::string path)->std::vector<int> {
+    auto getattr = [&](const std::string path)->std::vector<unsigned int> {
         try {
             std::cout << "getattr: " << path << std::endl;
             auto path_uuid = uuid_from_str(path);
             auto ret = clt.call("get_attr", path_uuid).as<std::vector<std::string>>();
-            std::vector<int> attrs;
+            std::vector<unsigned int> attrs;
             for (const auto &i : ret) {
                 attrs.push_back(std::stoi(i));
             }
             return attrs;
         } catch (rpc::rpc_error& a) {
-            return std::vector<int>();
+            return std::vector<unsigned int>();
         }
     };
 
@@ -118,11 +117,8 @@ int main(int argc, char *argv[]) {
         size_t max_chunks = file_size / CHUNK_SIZE; 
         size_t chunk_number = offset / CHUNK_SIZE;
         size_t local_offset = offset % CHUNK_SIZE;
-        std::cout << "max chunks = " << max_chunks << " chunk_number = " << chunk_number
-                  << " loc off_t = " << local_offset << std::endl;
         auto path_uuid = uuid_from_str(path);
         do {
-            std::cout << "chunk_nuber = " << chunk_number << std::endl;
             auto ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
             ret_str.insert(ret_str.end(), ret.begin() + local_offset, ret.begin() + 
                            std::min<size_t>(CHUNK_SIZE, local_offset + size));
@@ -154,7 +150,6 @@ int main(int argc, char *argv[]) {
             ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
         }
         ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
-        //ret = std::vector<char>(ret.begin(), ret.begin() + loc_offset + size);
         ret.resize(loc_offset + size);
         size_t ret_chunks_count = ret.size() / CHUNK_SIZE;
         for (size_t i = 0; i <= ret_chunks_count; i++) {
@@ -171,12 +166,9 @@ int main(int argc, char *argv[]) {
     };
 
 
-    auto mknod = [&](const std::string path) -> bool {
+    auto mknod = [&](const std::string path, std::vector<unsigned int> attrs) -> bool {
         auto path_uuid = uuid_from_str(path);
-        std::vector<std::string> attrs;
-        attrs.push_back(std::to_string(0));
-        attrs.push_back(std::to_string(1));
-        clt.call("set_attr", path_uuid, attrs);
+        clt.call("set_attr", path_uuid, attrs_to_string(attrs));
 
         auto cur_dir = getDirByPath(path);
         auto filename = nameByPath(path) + '\n';
@@ -202,9 +194,7 @@ int main(int argc, char *argv[]) {
         auto filename = nameByPath(path);
         auto dir_attrs = getattr(cur_dir);
         auto chunk = delete_from_dir(cur_dir, filename);
-        //dir_attrs[0] = chunk.size();
         write(cur_dir, std::vector<char>(chunk.begin(), chunk.end()), chunk.size(), 0);
-        //clt.call("set_attr", uuid_from_str(cur_dir), attrs_to_string(dir_attrs));
         clt.call("delete_file", uuid_from_str(path));
         return true;
     };
@@ -218,38 +208,23 @@ int main(int argc, char *argv[]) {
         auto chunk = delete_from_dir(from_dir, from_filename);
         std::cout << from_filename << from_dir << chunk << std::endl;
         write(from_dir, std::vector<char>(chunk.begin(), chunk.end()), chunk.size(), 0);
-        //from_attrs[0] -= from_filename.size();
         auto to_dir = getDirByPath(to);
         auto to_filename = nameByPath(to) + '\n';
         auto to_attrs = getattr(to_dir);
         std::cout << to_dir << to_filename << std::endl;
         write(to_dir, std::vector<char>(to_filename.begin(), to_filename.end()), to_filename.size(), to_attrs[0]);
-        //to_attrs[0] += to_filename.size();
-        /*clt.call("set_attr", uuid_from_str(from_dir),
-                 attrs_to_string(from_attrs));
-        clt.call("set_attr", uuid_from_str(to_dir),
-                 attrs_to_string(to_attrs));*/
         clt.call("rename_file", uuid_from_str(from), uuid_from_str(to));
         return true;
     };
-    
-    /*auto mkdir = [&](const std::string path) {
-        auto path_uuid = uuid_from_str(path);
-        std::vector<std::string> attrs;
-        attrs.push_back(std::to_string(0));
-        attrs.push_back(std::to_string(2));
-        clt.call("set_attr", path_uuid, attrs);
 
-        auto cur_dir = getDirByPath(path);
-        auto filename = path.substr(cur_dir.size() + 1, path.size());
-        auto dir_attrs = getattr(cur_dir);
-        return write(cur_dir, std::vector<char>(filename.begin(), filename.end()), filename.size(), dir_attrs[0]);
-    };*/
-    
-    auto rmdir = [&](const std::string path) {
-
+    auto chmod = [&](const std::string path, std::vector<unsigned int> perms) {
+        auto attrs = getattr(path);
+        for (int i = 0; i < 3; i++) 
+            attrs[2+i] = perms[i];
+        clt.call("set_attr", uuid_from_str(path), attrs_to_string(attrs));
+        return true;
     };
-
+    
     srv.bind("access", access);
     srv.bind("getattr", getattr);
     srv.bind("readdir", readdir);
@@ -260,9 +235,7 @@ int main(int argc, char *argv[]) {
     srv.bind("mknod", mknod);
     srv.bind("delete_file", delete_file);
     srv.bind("rename", rename);
-    //srv.bind("mkdir", mkdir);
-    //srv.bind("rmdir", rmdir);
     srv.bind("init", init);
-
+    srv.bind("chmod", chmod);
     srv.run();
 }

@@ -42,6 +42,8 @@ public:
   static int mkdir(const char *, mode_t);
 
   static int rmdir(const char *);
+
+  static int chmod(const char*, mode_t, struct fuse_file_info*);
   
 };
 
