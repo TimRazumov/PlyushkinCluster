@@ -44,7 +44,8 @@ public:
   static int rmdir(const char *);
 
   static int chmod(const char*, mode_t, struct fuse_file_info*);
-  
+
+  static int utimens(const char*, const struct timespec*, struct fuse_file_info *);  
 };
 
 #endif

@@ -14,7 +14,7 @@ const int TIMEOUT = 10000;
 
 rpc::client client("127.0.0.1", 2280);
 
-std::vector<mode_t> perms_t = {
+const std::vector<mode_t> perms_t = {
     0000, 0001, 0002, 0003, 0004, 0005, 0006, 0007
 };
 
@@ -181,5 +181,9 @@ int HelloFS::chmod(const char* path, mode_t mode, struct fuse_file_info*) {
     std::cout << "chmod: " << path << std::endl;
     if (!client.call("chmod", path, get_perm(mode)).as<bool>())
         return -errno;
+    return 0;
+}
+
+int HelloFS::utimens(const char*, const struct timespec*, struct fuse_file_info *) {
     return 0;
 }
