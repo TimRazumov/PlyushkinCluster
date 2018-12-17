@@ -5,12 +5,16 @@
 
 #include "Fuse.h"
 #include "rpc/client.h"
+#include "boost/filesystem.hpp"
+
+#include "utils.hpp"
 #include "Fuse-impl.h"
 
 class HelloFS : public Fusepp::Fuse<HelloFS>
 {
 public:
-  HelloFS() {}
+  HelloFS() {
+  }
 
   ~HelloFS() {}
   
