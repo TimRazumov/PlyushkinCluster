@@ -18,9 +18,10 @@ if(FUSE_FOUND)
     add_executable(fuse_mount
             project/src/Fuse.cpp
             project/src/hello.cpp
-            project/src/helloFS.cpp)
+            project/src/helloFS.cpp
+            project/src/utils.cpp)
 
-    target_link_libraries(fuse_mount rpc pthread ${FUSE_LIBRARIES})
+    target_link_libraries(fuse_mount rpc pthread Boost::filesystem ${FUSE_LIBRARIES})
 endif()
 
 add_executable(rpc_daemon

@@ -3,52 +3,32 @@
 #include "helloFS.h"
 
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <string>
-#include <bitset>
 #include <rpc/rpc_error.h>
 
 // include in one .cpp file
 #include "Fuse-impl.h"
 
-
+#include "utils.hpp"
 
 const int TIMEOUT = 5000;
 
-const std::vector<mode_t> perms_t = {
-    0000, 0001, 0002, 0003, 0004, 0005, 0006, 0007
-};
-
-std::vector<unsigned int> get_perm(mode_t mode) {
-    auto o_perm = std::bitset<3>(mode);
-    auto g_perm = std::bitset<3>(mode >> 3);
-    auto u_perm = std::bitset<3>(mode >> 6);
-    unsigned int o_id = 0;
-    unsigned int g_id = 0;
-    unsigned int u_id = 0;
-    for (int i = 0; i < perms_t.size(); i++) {
-        if (o_perm == std::bitset<3>(perms_t[i]))
-            o_id = i;
-        if (g_perm == std::bitset<3>(perms_t[i]))
-            g_id = i;
-        if (u_perm == std::bitset<3>(perms_t[i]))
-            u_id = i;
-    }
-    std::vector<unsigned int> ret = {o_id, g_id, u_id};
-    return ret;
-}
-
 void* HelloFS::init(struct fuse_conn_info*, struct fuse_config*) {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init");
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         client.call("init");
     } catch (rpc::timeout) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init timeout error");
     }
 }
 
 int HelloFS::access(const char* path, int) {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "access: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         int ret = client.call("access", path).as<int>();
@@ -57,6 +37,7 @@ int HelloFS::access(const char* path, int) {
         }
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "access timeout error");
         return -errno;
     }
     
@@ -65,6 +46,7 @@ int HelloFS::access(const char* path, int) {
 int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
 {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "getattr: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         auto tmp = client.call("getattr", path).as<std::vector<unsigned int>>();
@@ -85,6 +67,7 @@ int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info
         }
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "getattr timeout error");
         return -errno;
     }
 }
@@ -93,6 +76,7 @@ int HelloFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			               off_t, struct fuse_file_info *, enum fuse_readdir_flags)
 {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "readdir: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         if (!client.call("isDir", path).as<bool>())
@@ -106,6 +90,7 @@ int HelloFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         }
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "readdir timeout error");
         return -errno;
     }
 }
@@ -114,6 +99,7 @@ int HelloFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 int HelloFS::open(const char *path, struct fuse_file_info *fi)
 {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "open: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         if (!(client.call("isFile", path).as<bool>())) {
@@ -121,6 +107,7 @@ int HelloFS::open(const char *path, struct fuse_file_info *fi)
         }
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "open timeout error");
         return -errno;
     }
 }
@@ -130,6 +117,7 @@ int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
 		              struct fuse_file_info *)
 {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "read: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         if (!(client.call("isFile", path).as<bool>()))
@@ -140,6 +128,7 @@ int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
         memcpy(buf, data.data(), size);
 	    return size;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "read timeout error");
         return -errno;
     }
 }
@@ -147,6 +136,7 @@ int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
 int HelloFS::write(const char *path, const char *buf, size_t size,
                    off_t offset, struct fuse_file_info *) {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "write: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         std::vector<char> my_buf(size);
@@ -157,12 +147,14 @@ int HelloFS::write(const char *path, const char *buf, size_t size,
                               my_buf, size, offset).as<int>();
         return len;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "write timeout error");
         return -errno;
     }
 }
 
 int HelloFS::mknod(const char *path, mode_t mode, dev_t) {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mknod: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         std::vector<unsigned int> attrs = {0, 1};
@@ -174,12 +166,14 @@ int HelloFS::mknod(const char *path, mode_t mode, dev_t) {
         }
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mknod timeout error");
         return -errno;
     }
 }
 
 int HelloFS::unlink(const char *path) {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "unlink: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         std::cout << "unlink: " << path << std::endl;
@@ -189,12 +183,15 @@ int HelloFS::unlink(const char *path) {
         }
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "unlink timeout error");
         return -errno;
     }
 }
 
 int HelloFS::rename(const char* from, const char* to, unsigned int) {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rename: " +
+                std::string(from) + " -> " + std::string(to));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         bool ok = client.call("rename", from, to).as<bool>();
@@ -203,12 +200,14 @@ int HelloFS::rename(const char* from, const char* to, unsigned int) {
         }
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rename timeout error");
         return -errno;
     }
 }
 
 int HelloFS::mkdir(const char *path, mode_t mode) {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mkdir: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         std::vector<unsigned int> attrs = {0, 2};
@@ -220,12 +219,14 @@ int HelloFS::mkdir(const char *path, mode_t mode) {
         }
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mkdir timeout error");
         return -errno;
     }
 }
 
 int HelloFS::rmdir(const char* path) {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rmdir: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
         bool ok = client.call("delete_file", path).as<bool>();
@@ -234,19 +235,21 @@ int HelloFS::rmdir(const char* path) {
         }
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rmdir timeout error");
         return -errno;
     }
 }
 
 int HelloFS::chmod(const char* path, mode_t mode, struct fuse_file_info*) {
     try {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "chmod: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
-        std::cout << "chmod: " << path << std::endl;
         if (!client.call("chmod", path, get_perm(mode)).as<bool>())
             return -errno;
         return 0;
     } catch (rpc::timeout& T) {
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "chmod timeout error");
         return -errno;
     }
 }

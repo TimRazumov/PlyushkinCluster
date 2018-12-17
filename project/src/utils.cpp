@@ -49,6 +49,25 @@ std::string uuid_from_str(std::string const &path) {
     return to_string(path_gen(path));
 }
 
+std::vector<unsigned int> get_perm(mode_t mode) {
+    auto o_perm = std::bitset<3>(mode);
+    auto g_perm = std::bitset<3>(mode >> 3);
+    auto u_perm = std::bitset<3>(mode >> 6);
+    unsigned int o_id = 0;
+    unsigned int g_id = 0;
+    unsigned int u_id = 0;
+    for (int i = 0; i < perms_t.size(); i++) {
+        if (o_perm == std::bitset<3>(perms_t[i]))
+            o_id = i;
+        if (g_perm == std::bitset<3>(perms_t[i]))
+            g_id = i;
+        if (u_perm == std::bitset<3>(perms_t[i]))
+            u_id = i;
+    }
+    std::vector<unsigned int> ret = {o_id, g_id, u_id};
+    return ret;
+}
+
 void add_log(const std::string &directory, const std::string &log) {
     std::ofstream log_file(directory + "log", std::ios_base::app);
     time_t seconds = time(nullptr);

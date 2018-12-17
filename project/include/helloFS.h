@@ -7,13 +7,13 @@
 #include "rpc/client.h"
 #include "boost/filesystem.hpp"
 
-#include "utils.hpp"
 #include "Fuse-impl.h"
 
 class HelloFS : public Fusepp::Fuse<HelloFS>
 {
 public:
   HelloFS() {
+    boost::filesystem::create_directories(getenv("HOME") + std::string("/plyushkincluster/fuse/"));
   }
 
   ~HelloFS() {}
