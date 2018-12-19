@@ -2,18 +2,15 @@
 #include <rpc/client.h>
 #include <rpc/server.h>
 #include <rpc/rpc_error.h>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_io.hpp>
-#include <boost/uuid/nil_generator.hpp>
-#include <boost/uuid/name_generator.hpp>
-#include <sys/stat.h>
+#include <rpc/this_handler.h>
 
 #include "utils.hpp"
 
-const int TIMEOUT = 10000;
+const int TIMEOUT = 5000;
 const int LOCAL_PORT = 2280;
 constexpr size_t CHUNK_SIZE = 2*1024*1024;
 
+using err_t = std::tuple<int, std::string>;
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
@@ -26,6 +23,8 @@ int main(int argc, char *argv[]) {
     
     clt.set_timeout(TIMEOUT);
     
+    srv.suppress_exceptions(true);
+
     auto init = [&]() {
         if (!clt.call("is_meta_exist", uuid_from_str("/")).as<bool>()) {
             std::vector<unsigned int> attrs = {0, 2, 5, 5, 7};
@@ -41,6 +40,16 @@ int main(int argc, char *argv[]) {
             }
             return -1;
         } catch (rpc::rpc_error &e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occured"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
         }
     };
 
@@ -54,34 +63,56 @@ int main(int argc, char *argv[]) {
                 attrs.push_back(std::stoi(i));
             }
             return attrs;
-        } catch (rpc::rpc_error& a) {
-            return std::vector<unsigned int>();
+        } catch (rpc::rpc_error& e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occured"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
         }
     };
 
 
     auto readdir = [&](const std::string path) {
-        std::cout << "readdir: " << path << std::endl;
-        auto attrs = getattr(path);
-        std::vector<std::string> ret_vec;
-        if (attrs[0] == 0) {
-            return ret_vec;
-        }
-        size_t max_chunks = attrs[0] / CHUNK_SIZE;
-        auto path_uuid = uuid_from_str(path);
-        size_t i = 0;
-        while (i <= max_chunks) {
-            auto ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
-            auto iter = ret.begin();
-            auto it_end = ret.end();
-            while (iter < it_end) {
-                auto tmp_iter = line_end(iter);
-                ret_vec.push_back(std::string(iter, tmp_iter));
-                iter = tmp_iter + 1;
+        try {
+            std::cout << "readdir: " << path << std::endl;
+            auto attrs = getattr(path);
+            std::vector<std::string> ret_vec;
+            if (attrs[0] == 0) {
+                return ret_vec;
             }
-            i++;
+            size_t max_chunks = attrs[0] / CHUNK_SIZE;
+            auto path_uuid = uuid_from_str(path);
+            size_t i = 0;
+            while (i <= max_chunks) {
+                auto ret = clt.call("get_chunk", path_uuid, i).as<std::vector<char>>();
+                auto iter = ret.begin();
+                auto it_end = ret.end();
+                while (iter < it_end) {
+                    auto tmp_iter = line_end(iter);
+                    ret_vec.push_back(std::string(iter, tmp_iter));
+                    iter = tmp_iter + 1;
+                }
+                i++;
+            }
+            return ret_vec;
+        } catch (rpc::rpc_error &e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occured"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
         }
-        return ret_vec;
     };
 
     auto isFile = [&](const std::string path) {
@@ -95,85 +126,147 @@ int main(int argc, char *argv[]) {
             }
             return false;
         } catch (rpc::rpc_error &e) {
-            return false;
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occured"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
         }
     };
     
     auto isDir = [&](const std::string path) {
-        std::cout << "isDir: " << path << std::endl;
-        return !isFile(path);
+        try {
+            std::cout << "isDir: " << path << std::endl;
+            return !isFile(path);
+        } catch (rpc::rpc_error &e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occurred"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
+        }
     };
 
     auto read = [&](const std::string path, size_t size, off_t offset) {
-        std::cout << "read: " << path << " " << size << " " << offset << std::endl;
-        size_t file_size = getattr(path)[0];
-        std::vector<char> ret_str;
-        if (offset >= file_size) {
+        try {
+            std::cout << "read: " << path << " " << size << " " << offset << std::endl;
+            size_t file_size = getattr(path)[0];
+            std::vector<char> ret_str;
+            if (offset >= file_size) {
+                return ret_str;
+            }
+            if ((int)size + offset > file_size) {
+                size = file_size - (size_t)offset;
+            }
+            size_t max_chunks = file_size / CHUNK_SIZE; 
+            size_t chunk_number = offset / CHUNK_SIZE;
+            size_t local_offset = offset % CHUNK_SIZE;
+            auto path_uuid = uuid_from_str(path);
+            do {
+                auto ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
+                ret_str.insert(ret_str.end(), ret.begin() + local_offset, ret.begin() + 
+                               std::min<size_t>(CHUNK_SIZE, local_offset + size));
+                size -= ret_str.size();
+                local_offset = 0;
+                chunk_number++;
+            } while (size > 0 && chunk_number <= max_chunks);
             return ret_str;
+        } catch (rpc::rpc_error &e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occurred"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
         }
-        if ((int)size + offset > file_size) {
-            size = file_size - (size_t)offset;
-        }
-        size_t max_chunks = file_size / CHUNK_SIZE; 
-        size_t chunk_number = offset / CHUNK_SIZE;
-        size_t local_offset = offset % CHUNK_SIZE;
-        auto path_uuid = uuid_from_str(path);
-        do {
-            auto ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
-            ret_str.insert(ret_str.end(), ret.begin() + local_offset, ret.begin() + 
-                           std::min<size_t>(CHUNK_SIZE, local_offset + size));
-            size -= ret_str.size();
-            local_offset = 0;
-            chunk_number++;
-        } while (size > 0 && chunk_number <= max_chunks);
-        return ret_str;
     };
 
     auto write = [&](const std::string path, std::vector<char> buf,
                      size_t size, off_t offset) {
-        std::cout << "write: ";
-        std::cout << path << " ";
-        std::cout << buf.data() << " ";
-        std::cout << size << " ";
-        std::cout << offset << std::endl;
-        auto attrs = getattr(path);
-        size_t file_size = attrs[0];
-        attrs[0] = offset + size;
-        auto path_uuid = uuid_from_str(path);
-        clt.call("set_attr", path_uuid,
-                attrs_to_string(attrs));
-        size_t max_chunks = file_size / CHUNK_SIZE; 
-        size_t chunk_number = offset / CHUNK_SIZE;
-        size_t loc_offset = offset % CHUNK_SIZE;
-        std::vector<char> ret;
-        if (file_size != 0 && chunk_number <= max_chunks) {
-            ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
-        }
-        ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
-        ret.resize(loc_offset + size);
-        size_t ret_chunks_count = ret.size() / CHUNK_SIZE;
-        for (size_t i = 0; i <= ret_chunks_count; i++) {
-            auto chunk = std::vector<char>(ret.begin(),
-                         ret.begin() + std::min<int>(ret.size(), CHUNK_SIZE));
-            clt.call("save_chunk", path_uuid, chunk_number, chunk);
-            chunk_number++;
-            if (ret.size() > CHUNK_SIZE) {
-                ret = std::vector<char>(ret.begin() + CHUNK_SIZE, ret.end());
+        try {
+            std::cout << "write: ";
+            std::cout << path << " ";
+            std::cout << buf.data() << " ";
+            std::cout << size << " ";
+            std::cout << offset << std::endl;
+            auto attrs = getattr(path);
+            size_t file_size = attrs[0];
+            attrs[0] = offset + size;
+            auto path_uuid = uuid_from_str(path);
+            clt.call("set_attr", path_uuid,
+                    attrs_to_string(attrs));
+            size_t max_chunks = file_size / CHUNK_SIZE; 
+            size_t chunk_number = offset / CHUNK_SIZE;
+            size_t loc_offset = offset % CHUNK_SIZE;
+            std::vector<char> ret;
+            if (file_size != 0 && chunk_number <= max_chunks) {
+                ret = clt.call("get_chunk", path_uuid, chunk_number).as<std::vector<char>>();
             }
+            ret.insert(ret.begin() + loc_offset, buf.begin(), buf.end());
+            ret.resize(loc_offset + size);
+            size_t ret_chunks_count = ret.size() / CHUNK_SIZE;
+            for (size_t i = 0; i <= ret_chunks_count; i++) {
+                auto chunk = std::vector<char>(ret.begin(),
+                             ret.begin() + std::min<int>(ret.size(), CHUNK_SIZE));
+                clt.call("save_chunk", path_uuid, chunk_number, chunk);
+                chunk_number++;
+                if (ret.size() > CHUNK_SIZE) {
+                    ret = std::vector<char>(ret.begin() + CHUNK_SIZE, ret.end());
+                }
+            }
+            std::cout << "write end" << std::endl;
+            return size;
+        } catch (rpc::rpc_error &e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occured"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
         }
-        std::cout << "write end" << std::endl;
-        return size;
     };
 
 
     auto mknod = [&](const std::string path, std::vector<unsigned int> attrs) -> bool {
-        auto path_uuid = uuid_from_str(path);
-        clt.call("set_attr", path_uuid, attrs_to_string(attrs));
+        try {
+            auto path_uuid = uuid_from_str(path);
+            clt.call("set_attr", path_uuid, attrs_to_string(attrs));
 
-        auto cur_dir = getDirByPath(path);
-        auto filename = nameByPath(path) + '\n';
-        auto dir_attrs = getattr(cur_dir);
-        return write(cur_dir, std::vector<char>(filename.begin(), filename.end()), filename.size(), dir_attrs[0]);
+            auto cur_dir = getDirByPath(path);
+            auto filename = nameByPath(path) + '\n';
+            auto dir_attrs = getattr(cur_dir);
+            return write(cur_dir, std::vector<char>(filename.begin(),
+                         filename.end()), filename.size(), dir_attrs[0]);
+        } catch (rpc::rpc_error &e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occured"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
+        }
     };
 
     auto delete_from_dir = [&](std::string cur_dir, std::string filename) {
@@ -190,39 +283,78 @@ int main(int argc, char *argv[]) {
     };
     
     auto delete_file = [&](const std::string path) {
-        auto cur_dir = getDirByPath(path);
-        auto filename = nameByPath(path);
-        auto dir_attrs = getattr(cur_dir);
-        auto chunk = delete_from_dir(cur_dir, filename);
-        write(cur_dir, std::vector<char>(chunk.begin(), chunk.end()), chunk.size(), 0);
-        clt.call("delete_file", uuid_from_str(path));
-        return true;
+        try {
+            auto cur_dir = getDirByPath(path);
+            auto filename = nameByPath(path);
+            auto dir_attrs = getattr(cur_dir);
+            auto chunk = delete_from_dir(cur_dir, filename);
+            write(cur_dir, std::vector<char>(chunk.begin(), chunk.end()), chunk.size(), 0);
+            clt.call("delete_file", uuid_from_str(path));
+            return true;
+        } catch (rpc::rpc_error &e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occured"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
+        }
     };
 
     auto rename = [&](const std::string from, const std::string to) {
-        std::cout << "rename: " << from << " " << to << std::endl;
-        
-        auto from_filename = nameByPath(from);
-        auto from_dir = getDirByPath(from);
-        auto from_attrs = getattr(from_dir);
-        auto chunk = delete_from_dir(from_dir, from_filename);
-        std::cout << from_filename << from_dir << chunk << std::endl;
-        write(from_dir, std::vector<char>(chunk.begin(), chunk.end()), chunk.size(), 0);
-        auto to_dir = getDirByPath(to);
-        auto to_filename = nameByPath(to) + '\n';
-        auto to_attrs = getattr(to_dir);
-        std::cout << to_dir << to_filename << std::endl;
-        write(to_dir, std::vector<char>(to_filename.begin(), to_filename.end()), to_filename.size(), to_attrs[0]);
-        clt.call("rename_file", uuid_from_str(from), uuid_from_str(to));
-        return true;
+        try {
+            std::cout << "rename: " << from << " " << to << std::endl;
+            
+            auto from_filename = nameByPath(from);
+            auto from_dir = getDirByPath(from);
+            auto from_attrs = getattr(from_dir);
+            auto chunk = delete_from_dir(from_dir, from_filename);
+            std::cout << from_filename << from_dir << chunk << std::endl;
+            write(from_dir, std::vector<char>(chunk.begin(), chunk.end()), chunk.size(), 0);
+            auto to_dir = getDirByPath(to);
+            auto to_filename = nameByPath(to) + '\n';
+            auto to_attrs = getattr(to_dir);
+            std::cout << to_dir << to_filename << std::endl;
+            write(to_dir, std::vector<char>(to_filename.begin(), to_filename.end()), to_filename.size(), to_attrs[0]);
+            clt.call("rename_file", uuid_from_str(from), uuid_from_str(to));
+            return true;
+        } catch (rpc::rpc_error &e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occured"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
+        }
     };
 
     auto chmod = [&](const std::string path, std::vector<unsigned int> perms) {
-        auto attrs = getattr(path);
-        for (int i = 0; i < 3; i++) 
-            attrs[2+i] = perms[i];
-        clt.call("set_attr", uuid_from_str(path), attrs_to_string(attrs));
-        return true;
+        try {
+            auto attrs = getattr(path);
+            for (int i = 0; i < 3; i++) 
+                attrs[2+i] = perms[i];
+            clt.call("set_attr", uuid_from_str(path), attrs_to_string(attrs));
+            return true;
+        } catch (rpc::rpc_error &e) {
+            auto err = e.get_error().as<err_t>();
+            if (std::get<0>(err) == 1) {
+                rpc::this_handler().respond_error(
+                    std::make_tuple(3, "File is not exist"));
+            }
+            rpc::this_handler().respond_error(
+                std::make_tuple(2, "MDS error occured"));
+        } catch (rpc::timeout &t) {
+            rpc::this_handler().respond_error(
+                std::make_tuple(1, "MDS timeout"));
+        }
     };
     
     srv.bind("access", access);
