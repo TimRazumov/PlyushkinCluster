@@ -13,13 +13,14 @@
 // TODO: обрабатывать, добавлен ли уже такой сервер или нет
 const std::string help = "\nYou can use:\n"
                          "help\n"
-                         "al - add local CS\n"
-                         "cs - CS list\n"
+                         "a   - add CS\n"
+                         "al  - add local CS\n"
+                         "cs  - CS list\n"
                          "cht - change timeout\n"
-                         "gt - get timeout\n"
+                         "gt  - get timeout\n"
                          "chs - change status\n"
-                         "gs - get status\n"
-                         "st - stop server\n\n";
+                         "gs  - get status\n"
+                         "st  - stop server\n\n";
 
 
 int main(int argc, const char *argv[]) {
@@ -45,6 +46,20 @@ int main(int argc, const char *argv[]) {
             return 0;
         } else if (command == "help") {
             std::cout << help;
+        } else if (command == "a") {
+            std::string addr;
+
+            std::cout << "IP: ";
+            std::cin >> addr;
+            std::cout << "Port: ";
+            std::cin >> command;
+            uint16_t CS_port;
+            if (str_to_uint16(command.c_str(), CS_port)) {
+                std::cout << "\nAdded CS.\n" << "IP: " << addr << "\nPort: " << CS_port << "\n" << std::endl;
+                this_MDS.add_CS(addr, CS_port);
+            } else {
+                std::cout << "Wrong port value" << std::endl;
+            }
         } else if (command == "al") {
             std::cout << "Port: ";
             std::cin >> command;
@@ -67,7 +82,7 @@ int main(int argc, const char *argv[]) {
             std::cin >> command;
             if (str_to_uint16(command.c_str(), new_timeout)) {
                 this_MDS.change_timeout(new_timeout);
-                std::cout << "DONE, SIR" << std::endl;
+                std::cout << "Done" << std::endl;
             } else {
                 std::cout << "Wrong value" << std::endl;
             }

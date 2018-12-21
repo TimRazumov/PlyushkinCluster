@@ -56,7 +56,7 @@ std::vector<unsigned int> get_perm(mode_t mode) {
     unsigned int o_id = 0;
     unsigned int g_id = 0;
     unsigned int u_id = 0;
-    for (int i = 0; i < perms_t.size(); i++) {
+    for (unsigned int i = 0; i < perms_t.size(); i++) {
         if (o_perm == std::bitset<3>(perms_t[i]))
             o_id = i;
         if (g_perm == std::bitset<3>(perms_t[i]))
