@@ -9,23 +9,27 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 find_package(Boost COMPONENTS filesystem REQUIRED)
 find_package(FUSE REQUIRED)
 
-include_directories(project/include)
+include_directories(project/include
+                    project/include/libfuse
+                    project/include/MDS
+                    project/include/CS
+                    project/include/Client)
 
 
 if(FUSE_FOUND)
     add_definitions(${FUSE_DEFINITIONS})
-    include_directories(project/include ${FUSE_INCLUDE_DIRS})
+    include_directories(project/include/libfuse ${FUSE_INCLUDE_DIRS})
     add_executable(fuse_mount
-            project/src/Fuse.cpp
-            project/src/mounter_main.cpp
-            project/src/mounter.cpp
+            project/src/Client/Fuse.cpp
+            project/src/Client/mounter_main.cpp
+            project/src/Client/mounter.cpp
             project/src/utils.cpp)
 
     target_link_libraries(fuse_mount rpc pthread Boost::filesystem ${FUSE_LIBRARIES})
 endif()
 
 add_executable(connect
-        project/src/connector.cpp
+        project/src/Client/connector.cpp
         project/src/utils.cpp)
 
 target_link_libraries(connect rpc pthread)
