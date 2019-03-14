@@ -1,7 +1,0 @@
-# local
-.idea/
-cmake-build-debug/
-tmp/
-
-# server directory
-servers/
