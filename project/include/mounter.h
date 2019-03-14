@@ -9,14 +9,14 @@
 
 #include "Fuse-impl.h"
 
-class HelloFS : public Fusepp::Fuse<HelloFS>
+class Mounter : public Fusepp::Fuse<Mounter>
 {
 public:
-  HelloFS() {
+  Mounter() {
     boost::filesystem::create_directories(getenv("HOME") + std::string("/plyushkincluster/fuse/"));
   }
 
-  ~HelloFS() {}
+  ~Mounter() {}
   
   static int access(const char*, int);
 

@@ -18,7 +18,7 @@ const int TIMEOUT = 5000;
 using err_t = std::tuple<int, std::string>;
 
 
-void* HelloFS::init(struct fuse_conn_info*, struct fuse_config*) {
+void* Mounter::init(struct fuse_conn_info*, struct fuse_config*) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init");
         rpc::client client("127.0.0.1", 2280);
@@ -31,7 +31,7 @@ void* HelloFS::init(struct fuse_conn_info*, struct fuse_config*) {
     }
 }
 
-int HelloFS::access(const char* path, int) {
+int Mounter::access(const char* path, int) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "access: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
@@ -55,7 +55,7 @@ int HelloFS::access(const char* path, int) {
     
 }
 
-int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
+int Mounter::getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
 {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "getattr: " + std::string(path));
@@ -88,7 +88,7 @@ int HelloFS::getattr(const char *path, struct stat *stbuf, struct fuse_file_info
     }
 }
 
-int HelloFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+int Mounter::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			               off_t, struct fuse_file_info *, enum fuse_readdir_flags)
 {
     try {
@@ -119,7 +119,7 @@ int HelloFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 }
 
 
-int HelloFS::open(const char *path, struct fuse_file_info *fi)
+int Mounter::open(const char *path, struct fuse_file_info *fi)
 {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "open: " + std::string(path));
@@ -143,7 +143,7 @@ int HelloFS::open(const char *path, struct fuse_file_info *fi)
 }
 
 
-int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
+int Mounter::read(const char *path, char *buf, size_t size, off_t offset,
 		              struct fuse_file_info *)
 {
     try {
@@ -170,7 +170,7 @@ int HelloFS::read(const char *path, char *buf, size_t size, off_t offset,
     }
 }
 
-int HelloFS::write(const char *path, const char *buf, size_t size,
+int Mounter::write(const char *path, const char *buf, size_t size,
                    off_t offset, struct fuse_file_info *) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "write: " + std::string(path));
@@ -196,7 +196,7 @@ int HelloFS::write(const char *path, const char *buf, size_t size,
     }
 }
 
-int HelloFS::mknod(const char *path, mode_t mode, dev_t) {
+int Mounter::mknod(const char *path, mode_t mode, dev_t) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mknod: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
@@ -218,7 +218,7 @@ int HelloFS::mknod(const char *path, mode_t mode, dev_t) {
     }
 }
 
-int HelloFS::unlink(const char *path) {
+int Mounter::unlink(const char *path) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "unlink: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
@@ -242,7 +242,7 @@ int HelloFS::unlink(const char *path) {
     }
 }
 
-int HelloFS::rename(const char* from, const char* to, unsigned int) {
+int Mounter::rename(const char* from, const char* to, unsigned int) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rename: " +
                 std::string(from) + " -> " + std::string(to));
@@ -266,7 +266,7 @@ int HelloFS::rename(const char* from, const char* to, unsigned int) {
     }
 }
 
-int HelloFS::mkdir(const char *path, mode_t mode) {
+int Mounter::mkdir(const char *path, mode_t mode) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mkdir: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
@@ -288,7 +288,7 @@ int HelloFS::mkdir(const char *path, mode_t mode) {
     }
 }
 
-int HelloFS::rmdir(const char* path) {
+int Mounter::rmdir(const char* path) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rmdir: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
@@ -311,7 +311,7 @@ int HelloFS::rmdir(const char* path) {
     }
 }
 
-int HelloFS::chmod(const char* path, mode_t mode, struct fuse_file_info*) {
+int Mounter::chmod(const char* path, mode_t mode, struct fuse_file_info*) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "chmod: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
@@ -332,6 +332,7 @@ int HelloFS::chmod(const char* path, mode_t mode, struct fuse_file_info*) {
     }
 }
 
-int HelloFS::utimens(const char*, const struct timespec*, struct fuse_file_info *) {
+//TODO: realize this method
+int Mounter::utimens(const char*, const struct timespec*, struct fuse_file_info *) {
     return 0;
 }

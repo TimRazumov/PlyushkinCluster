@@ -6,7 +6,7 @@
 int main(int argc, char *argv[])
 {
 
-  HelloFS fs;
+  Mounter fs;
   
   int status = fs.run(argc, argv);
 
