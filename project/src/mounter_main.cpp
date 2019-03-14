@@ -1,6 +1,6 @@
 // See  FUSE:  example/hello.c
 
-#include "helloFS.h"
+#include "mounter.h"
 #include <rpc/client.h>
 
 int main(int argc, char *argv[])

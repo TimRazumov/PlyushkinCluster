@@ -17,18 +17,18 @@ if(FUSE_FOUND)
     include_directories(project/include ${FUSE_INCLUDE_DIRS})
     add_executable(fuse_mount
             project/src/Fuse.cpp
-            project/src/hello.cpp
-            project/src/helloFS.cpp
+            project/src/mounter_main.cpp
+            project/src/mounter.cpp
             project/src/utils.cpp)
 
     target_link_libraries(fuse_mount rpc pthread Boost::filesystem ${FUSE_LIBRARIES})
 endif()
 
-add_executable(rpc_daemon
-        project/src/rpc_daemon.cpp
+add_executable(connect
+        project/src/connector.cpp
         project/src/utils.cpp)
 
-target_link_libraries(rpc_daemon rpc pthread)
+target_link_libraries(connect rpc pthread)
 
 add_executable(MDS
         project/src/MDS/MDS_main.cpp
