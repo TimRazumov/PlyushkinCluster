@@ -3,7 +3,7 @@
 #ifndef __HELLOFS_H_
 #define __HELLOFS_H_
 
-#include "Fuse.h"
+#include "Fuse_cls.h"
 #include "rpc/client.h"
 #include "boost/filesystem.hpp"
 

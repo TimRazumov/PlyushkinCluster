@@ -23,7 +23,7 @@
  *  OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "Fuse.h"
+#include "Fuse_cls.h"
 
 template<class T> Fusepp::t_getattr Fusepp::Fuse<T>::getattr = nullptr;
 template<class T> Fusepp::t_readlink Fusepp::Fuse<T>::readlink = nullptr;
