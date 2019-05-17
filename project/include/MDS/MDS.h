@@ -1,7 +1,6 @@
 #ifndef PLYUSHKINCLUSTER_MDS_H
 #define PLYUSHKINCLUSTER_MDS_H
 
-
 #include <vector>
 #include <rpc/server.h>
 #include <rpc/client.h>

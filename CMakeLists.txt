@@ -46,3 +46,5 @@ add_executable(CS
         project/src/utils.cpp)
 
 target_link_libraries(CS rpc pthread Boost::filesystem)
+link_directories(/usr/local/lib)
+target_link_libraries(MDS zkpp zkpp-server)

@@ -17,7 +17,6 @@ const int TIMEOUT = 5000;
 
 using err_t = std::tuple<int, std::string>;
 
-
 void* Mounter::init(struct fuse_conn_info*, struct fuse_config*) {
     try {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init");
@@ -45,7 +44,7 @@ int Mounter::access(const char* path, int) {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "access timeout error");
         return -errno;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "access rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;
@@ -79,7 +78,7 @@ int Mounter::getattr(const char *path, struct stat *stbuf, struct fuse_file_info
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "getattr timeout error");
         return -EBADF;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "getattr rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;
@@ -109,7 +108,7 @@ int Mounter::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "readdir timeout error");
         return -EBADF;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "readdir rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;
@@ -133,7 +132,7 @@ int Mounter::open(const char *path, struct fuse_file_info *fi)
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "open timeout error");
         return -EFAULT;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "open rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;
@@ -161,7 +160,7 @@ int Mounter::read(const char *path, char *buf, size_t size, off_t offset,
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "read timeout error");
         return -EAGAIN;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "read rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;
@@ -187,7 +186,7 @@ int Mounter::write(const char *path, const char *buf, size_t size,
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "write timeout error");
         return -EAGAIN;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "write rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;
@@ -213,7 +212,7 @@ int Mounter::mknod(const char *path, mode_t mode, dev_t) {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mknod timeout error");
         return -EACCES;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mknod rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         return -EACCES;
     }
 }
@@ -223,6 +222,7 @@ int Mounter::unlink(const char *path) {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "unlink: " + std::string(path));
         rpc::client client("127.0.0.1", 2280);
         client.set_timeout(TIMEOUT);
+        std::cout << "unlink: " << path << std::endl;
         bool ok = client.call("delete_file", path).as<bool>();
         if (!ok) {
             return -errno;
@@ -232,7 +232,7 @@ int Mounter::unlink(const char *path) {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "unlink timeout error");
         return -EFAULT;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "unlink rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;
@@ -256,7 +256,7 @@ int Mounter::rename(const char* from, const char* to, unsigned int) {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rename timeout error");
         return -EFAULT;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rename rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;
@@ -282,7 +282,7 @@ int Mounter::mkdir(const char *path, mode_t mode) {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mkdir timeout error");
         return -EFAULT;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "mkdir rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         return -EFAULT;
     }
 }
@@ -301,7 +301,7 @@ int Mounter::rmdir(const char* path) {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rmdir timeout error");
         return -EFAULT;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "rmdir rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;
@@ -322,7 +322,7 @@ int Mounter::chmod(const char* path, mode_t mode, struct fuse_file_info*) {
         add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "chmod timeout error");
         return -EFAULT;
     } catch (rpc::rpc_error &e) {
-        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "chmod rpc error");
+        add_log(getenv("HOME") + std::string("/plyushkincluster/fuse/"), "init rpc error");
         auto err = e.get_error().as<err_t>();
         if (std::get<0>(err) == 3) {
             return -ENOENT;

@@ -7,8 +7,32 @@
 #include <rpc/client.h>
 #include <inttypes.h>
 
+#include <zk/server/configuration.hpp>
+#include <zk/server/server.hpp>
+#include <zk/client.hpp>
+#include <zk/multi.hpp>
+#include <zk/types.hpp>
+
 #include "MDS.h"
 #include "utils.hpp"
+
+const std::vector<char> new_data = {' '};
+
+template <typename T>
+void print_thing(std::future<T>&& result)
+{
+  try
+  {
+    // Unwrap the future value, which will not block (based on usage), but could throw.
+    T value(result.get());
+    std::cerr << value << std::endl;
+  }
+  catch (const std::exception& ex)
+  {
+    // Error "handling"
+    std::cerr << "Exception: " << ex.what() << std::endl;
+  }
+}
 
 // TODO: обрабатывать, добавлен ли уже такой сервер или нет
 const std::string help = "\nYou can use:\n"
@@ -31,6 +55,26 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
+    auto config = zk::server::configuration::make_minimal("zk-data", 2821)
+                    .add_server(1, "192.168.3.9");
+
+    config.save_file("settings.cfg");
+    {
+        std::ofstream of("zk-data/myid");
+        // Assuming this is server 1
+        of << 1 << std::endl;
+    }
+
+    zk::server::server svr(config);
+
+    auto client = zk::client::connect("zk://192.168.3.9:2821").get();
+
+    client.create("/Cluster/MDS/MDS_", new_data, zk::create_mode::sequential | zk::create_mode::ephemeral);
+    std::cout << "\n\n\n";
+    print_thing(client.get_children("/"));
+    std::cout << std::endl;
+    print_thing(client.get_children("/Cluster/MDS"));
+
     std::cout << "The server is running. Port: " << port << std::endl << help;
 
     MDS this_MDS(port);
@@ -43,6 +87,8 @@ int main(int argc, const char *argv[]) {
 
         if (command == "st" || feof(stdin)) {
             this_MDS.stop();
+            //svr.shutdown();
+            client.close();
             return 0;
         } else if (command == "help") {
             std::cout << help;

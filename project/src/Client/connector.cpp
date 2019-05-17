@@ -14,6 +14,7 @@ using err_t = std::tuple<int, std::string>;
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
+        std::cout << "Invalid input: IP port";
         return -1;
     }
     

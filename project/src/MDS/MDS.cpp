@@ -23,7 +23,7 @@ MDS::MDS(const uint16_t &port)
     , turn_of_servers(0)
 {
     // возвращает все исключения, возникшие в забинденных ф-ях в клиент TODO: включить когда настанет время
-//    this_server.suppress_exceptions(true);
+    // this_server.suppress_exceptions(true);
 
     MDS_directory = getenv("HOME");
     MDS_directory += "/plyushkincluster/servers/MDS/" + std::to_string(port) + "/";
@@ -31,6 +31,7 @@ MDS::MDS(const uint16_t &port)
     if (boost::filesystem::create_directories(MDS_directory)) {
         std::cout << "Create directory " << MDS_directory << std::endl;
     }
+
     this->binding();
 }
 
