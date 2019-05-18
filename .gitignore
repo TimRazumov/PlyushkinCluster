@@ -1,0 +1,23 @@
+# Editor swap/save files
+*~
+*.swp
+
+# IDE
+.idea/
+*.iml
+out
+.settings/
+cmake-build-debug/
+
+# Logs and server files
+servers/
+fuse/
+
+# CMake stuff
+CMakeFiles/
+Makefile
+cmake_install.cmake
+CMakeCache.txt
+CPackConfig.cmake
+CPackSourceConfig.cmake
+cmake_uninstall.cmake
