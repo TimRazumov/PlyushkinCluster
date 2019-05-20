@@ -8,12 +8,13 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 
 find_package(Boost COMPONENTS filesystem REQUIRED)
 find_package(FUSE REQUIRED)
+find_package(nlohmann_json 3.2.0 REQUIRED)
 
 include_directories(project/include
-                    project/include/libfuse
-                    project/include/MDS
-                    project/include/CS
-                    project/include/Client)
+        project/include/libfuse
+        project/include/MDS
+        project/include/CS
+        project/include/Client)
 
 
 if(FUSE_FOUND)
@@ -39,12 +40,12 @@ add_executable(MDS
         project/src/MDS/MDS.cpp
         project/src/utils.cpp)
 
-target_link_libraries(MDS rpc pthread Boost::filesystem)
+target_link_libraries(MDS rpc pthread Boost::filesystem nlohmann_json::nlohmann_json)
 
 add_executable(CS
         project/src/CS/CS_main.cpp
         project/src/utils.cpp)
 
-target_link_libraries(CS rpc pthread Boost::filesystem)
+target_link_libraries(CS rpc pthread Boost::filesystem nlohmann_json::nlohmann_json)
 link_directories(/usr/local/lib)
 target_link_libraries(MDS zkpp zkpp-server)
