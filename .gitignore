@@ -5,9 +5,11 @@
 # IDE
 .idea/
 *.iml
+*.cbp
 out
 .settings/
 cmake-build-debug/
+
 
 # Logs and server files
 servers/
@@ -23,7 +25,4 @@ CPackSourceConfig.cmake
 cmake_uninstall.cmake
 
 # Binaries
-CS
-MDS
-connect
-fuse_mount
+*.out
