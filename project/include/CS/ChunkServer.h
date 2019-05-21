@@ -41,7 +41,7 @@ public:
 private:
     uint16_t m_rpc_server_port;
     rpc::server m_rpc_server;
-    zk::client m_zk_client;
+    std::unique_ptr<zk::client> m_zk_client;
 
     std::string m_cs_dir;
     std::string m_this_cs_path;

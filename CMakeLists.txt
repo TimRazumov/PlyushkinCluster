@@ -20,33 +20,33 @@ include_directories(project/include
 if(FUSE_FOUND)
     add_definitions(${FUSE_DEFINITIONS})
     include_directories(project/include/libfuse ${FUSE_INCLUDE_DIRS})
-    add_executable(fuse_mount
+    add_executable(fuse_mount.out
             project/src/Client/Fuse.cpp
             project/src/Client/mounter_main.cpp
             project/src/Client/mounter.cpp
             project/src/utils.cpp)
 
-    target_link_libraries(fuse_mount rpc pthread Boost::filesystem ${FUSE_LIBRARIES})
+    target_link_libraries(fuse_mount.out rpc pthread Boost::filesystem ${FUSE_LIBRARIES})
 endif()
 
-add_executable(connect
+add_executable(connect.out
         project/src/Client/connector.cpp
         project/src/utils.cpp)
 
-target_link_libraries(connect rpc pthread)
+target_link_libraries(connect.out rpc pthread)
 
-add_executable(MDS
+add_executable(MDS.out
         project/src/MDS/MDS_main.cpp
         project/src/MDS/MDS.cpp
         project/src/utils.cpp)
 
-target_link_libraries(MDS rpc pthread Boost::filesystem nlohmann_json::nlohmann_json)
+target_link_libraries(MDS.out rpc pthread Boost::filesystem nlohmann_json::nlohmann_json)
 
-add_executable(CS
+add_executable(CS.out
         project/src/CS/CS_main.cpp
         project/src/utils.cpp project/src/CS/ChunkServer.cpp project/include/CS/ChunkServer.h project/src/CS/CS_data.cpp)
 
-target_link_libraries(CS rpc pthread Boost::filesystem nlohmann_json::nlohmann_json)
+target_link_libraries(CS.out rpc pthread Boost::filesystem nlohmann_json::nlohmann_json)
 link_directories(/usr/local/lib)
-target_link_libraries(MDS zkpp zkpp-server)
-target_link_libraries(CS zkpp)
+target_link_libraries(MDS.out zkpp zkpp-server)
+target_link_libraries(CS.out zkpp)
