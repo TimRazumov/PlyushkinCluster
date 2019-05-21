@@ -5,82 +5,64 @@
 #include <string>
 #include <rpc/server.h>
 #include <rpc/this_handler.h>
+#include <zk/client.hpp>
 
 #include "utils.hpp"
+#include "ChunkServer.h"
+
 
 
 int main(int argc, const char *argv[]) {
-    uint16_t port;
+    uint16_t rpc_server_port;
+    std::string mds_ip;
+    std::string mds_port;
 
-    if (argc != 2 || !str_to_uint16(argv[1], port)) {
-        std::cout << "Usage: " << argv[0] << " port\n";
+
+    if (argc != 2 || !str_to_uint16(argv[1], rpc_server_port)) {
+        std::cout << "Usage: " << argv[0] << " port" << std::endl;
         return 1;
     }
 
-    std::cout << "The server is running. Port: " << port << std::endl;
 
-    std::string CS_directory(getenv("HOME"));
-    CS_directory += "/plyushkincluster/servers/CS/" + std::to_string(port) + "/";
+    ChunkServer chunkServer(rpc_server_port);
 
-    if (boost::filesystem::create_directories(CS_directory)) {
-        std::cout << "Create directory " << CS_directory << std::endl;
+    std::cout << "Please, enter the ZooKeeper server ip and port: " << std::endl;
+
+    std::cin >> mds_ip >> mds_port;
+
+    chunkServer.connect_to_zks(mds_ip, mds_port);
+    if (!chunkServer.is_connected_to_zks()) {
+        std::cout << "Can't connect to ZooKeeper server. Shutting down." << std::endl;
+        return 1;
     }
 
-    rpc::server this_CS(port);
+    std::cout << "Process chunk server registration..." << std::endl;
+    chunkServer.register_cs_rpc();
 
-    // возвращает все исключения, возникшие в забинденных ф-ях в клиент TODO: включить когда настанет время
-    // this_CS.suppress_exceptions(true);
 
-    this_CS.bind(
-            "save_chunk", [=](const std::string &chunk_UUID, const std::vector<char> &chunk_content) {
-                add_log(CS_directory, "save_chunk");
+    while(!chunkServer.is_registered()) {
 
-                std::ofstream chunk_file(CS_directory + chunk_UUID);
+        std::string user_answer;
 
-                for (auto const &symbol : chunk_content) {
-                    chunk_file << symbol;
-                }
+        std::cout << "Error in chunk server registration. Retry? (type 'yes'/'no')" << std::endl;
+        std::cin >> user_answer;
 
-                chunk_file.close();
-            }
-    );
 
-    this_CS.bind(
-            "get_chunk", [=](const std::string &chunk_UUID) {
-                add_log(CS_directory, "get_chunk");
+        if (user_answer == "yes") {
+            chunkServer.register_cs_rpc();
+        } else if (user_answer == "no") {
+            std::cout << "Registration cancelled. Shutting down." << std::endl;
+            return 0;
+        } else {
+            std::cout << "Please, type 'yes' or 'no'." << std::endl;
+        }
 
-                std::ifstream chunk_file(CS_directory + chunk_UUID);
-                std::vector<char> chunk_content;
-                char buffer;
+        std::cin.clear();
+    }
 
-                chunk_file.get(buffer);
-                while (!chunk_file.eof()) {
-                    chunk_content.push_back(buffer);
-                    chunk_file.get(buffer);
-                };
+    std::cout << "Registered successfully. Starting RPC server." << std::endl;
 
-                chunk_file.close();
-                return chunk_content;
-            }
-    );
-
-    this_CS.bind(
-            "rename_chunk", [=](const std::string &old_UUID, const std::string &new_UUID) {
-                add_log(CS_directory, "rename_chunk");
-
-                boost::filesystem::rename(CS_directory + old_UUID, CS_directory + new_UUID);
-            }
-    );
-
-    this_CS.bind(
-            "delete_chunk", [=](const std::string &chunk_UUID) {
-                add_log(CS_directory, "delete_chunk");
-
-                boost::filesystem::remove(CS_directory + chunk_UUID);
-            }
-    );
-
-    this_CS.run();
+    chunkServer.start_rpc_server();
 
     return 0;
 }

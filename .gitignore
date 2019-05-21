@@ -23,7 +23,3 @@ CPackSourceConfig.cmake
 cmake_uninstall.cmake
 
 # Binaries
-CS
-MDS
-connect
-fuse_mount

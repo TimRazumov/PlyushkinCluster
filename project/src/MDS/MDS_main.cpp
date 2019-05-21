@@ -37,9 +37,9 @@ void print_thing(std::future<T>&& result)
 // TODO: обрабатывать, добавлен ли уже такой сервер или нет
 const std::string help = "\nYou can use:\n"
                          "help\n"
-                         "a   - add CS\n"
-                         "al  - add local CS\n"
-                         "cs  - CS list\n"
+                         "a   - add ChunkServer\n"
+                         "al  - add local ChunkServer\n"
+                         "cs  - ChunkServer list\n"
                          "cht - change timeout\n"
                          "gt  - get timeout\n"
                          "chs - change status\n"
@@ -101,7 +101,7 @@ int main(int argc, const char *argv[]) {
             std::cin >> command;
             uint16_t CS_port;
             if (str_to_uint16(command.c_str(), CS_port)) {
-                std::cout << "\nAdded CS.\n" << "IP: " << addr << "\nPort: " << CS_port << "\n" << std::endl;
+                std::cout << "\nAdded ChunkServer.\n" << "IP: " << addr << "\nPort: " << CS_port << "\n" << std::endl;
                 this_MDS.add_CS(addr, CS_port);
             } else {
                 std::cout << "Wrong port value" << std::endl;
@@ -111,14 +111,14 @@ int main(int argc, const char *argv[]) {
             std::cin >> command;
             uint16_t CS_port;
             if (str_to_uint16(command.c_str(), CS_port)) {
-                std::cout << "Added local CS. Port: " << CS_port << std::endl;
+                std::cout << "Added local ChunkServer. Port: " << CS_port << std::endl;
                 this_MDS.add_CS("127.0.0.1", CS_port);
             } else {
                 std::cout << "Wrong port value" << std::endl;
             }
         } else if (command == "cs") {
             auto known_CS = this_MDS.get_known_CS();
-            std::cout << "All known CS:" << std::endl;
+            std::cout << "All known ChunkServer:" << std::endl;
             for (const auto &CS : known_CS) {
                 std::cout << CS.get_info().addr << " " << CS.get_info().port << std::endl;
             }
