@@ -14,17 +14,23 @@ std::string CS_Watcher::get_ip(const zk::get_result& res) const {
 }
 
 // run watching
-void CS_Watcher::run() const {
+void CS_Watcher::run() {
     while (true) {
         auto children = client.get_children("/CLUSTER/CS").get();
         auto real_CS_list = children.children();
 
-        for (const auto& cs: real_CS_list) {
-            std::string real_ip = client.get(cs)
+        for (const std::string& cs: real_CS_list) {
+            std::string real_ip = get_ip(client.get(cs).get());
+
             try {
-
+                if (known_CS.at(cs) != real_ip) {
+                    std::cout << "[CS_Watcher]: " << cs << " changed ip" << std::endl;
+                    known_CS.at(cs) = real_ip;
+                    // magic
+                }
             } catch (const std::out_of_range& ex) {
-
+                std::cout << "[CS_Watcher]: new  znode = " << cs << " | ip = "
+                    << real_ip << std::endl;
             }
         }
 

@@ -18,7 +18,7 @@ class CS_Watcher final {
 public:
     explicit CS_Watcher();
 
-    void run() const;
+    void run();
 
 private:
     zk::client client;
