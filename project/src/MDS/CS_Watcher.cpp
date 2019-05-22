@@ -16,6 +16,13 @@ std::string CS_Watcher::get_ip(const zk::get_result& res) const {
 // run watching
 void CS_Watcher::run() {
     while (true) {
+
+        // to find failed cs
+        std::map<std::string, bool> found_cs;
+        for (const auto& it: known_CS) {
+           found_cs[it.first] = false;
+        }
+        
         auto children = client.get_children("/CLUSTER/CS").get();
         auto real_CS_list = children.children();
 
@@ -26,14 +33,23 @@ void CS_Watcher::run() {
                 if (known_CS.at(cs) != real_ip) {
                     std::cout << "[CS_Watcher]: " << cs << " changed ip" << std::endl;
                     known_CS.at(cs) = real_ip;
-                    // magic
                 }
+
+                found_cs[cs] = true;
             } catch (const std::out_of_range& ex) {
                 std::cout << "[CS_Watcher]: new  znode = " << cs << " | ip = "
                     << real_ip << std::endl;
+                known_CS.at(cs) = real_ip;
             }
         }
 
-        if (true) break;
+        for (const auto& cs: found_cs) {
+            if (!cs.second) {
+                std::cout << "[CS_Watcher]: " << cs.first << " disconnected" << std::endl;
+                // TODO: RAID MAGIC
+            }
+        }
+
+        sleep(2); // stop watching for 2 sec
     }
 }
