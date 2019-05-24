@@ -23,7 +23,7 @@ void CS_Watcher::run() {
            found_cs[it.first] = false;
         }
         
-        auto children = client.get_children("/CLUSTER/CS").get();
+        auto children = client.get_children(cs_direcrory).get();
         auto real_CS_list = children.children();
 
         for (const std::string& cs: real_CS_list) {
@@ -37,7 +37,7 @@ void CS_Watcher::run() {
 
                 found_cs[cs] = true;
             } catch (const std::out_of_range& ex) {
-                std::cout << "[CS_Watcher]: new  znode = " << cs << " | ip = "
+                std::cout << "[CS_Watcher]: new  znode = " + cs_direcrory + "/" << cs << " | ip = "
                     << real_ip << std::endl;
                 known_CS.at(cs) = real_ip;
             }
@@ -46,9 +46,11 @@ void CS_Watcher::run() {
         for (const auto& cs: found_cs) {
             if (!cs.second) {
                 std::cout << "[CS_Watcher]: " << cs.first << " disconnected" << std::endl;
-                // TODO: RAID MAGIC
+                known_CS.erase(cs_direcrory + "/" + cs.first);
             }
         }
+
+        // TODO: RAID MAGIC
 
         sleep(2); // stop watching for 2 sec
     }

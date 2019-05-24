@@ -38,7 +38,7 @@ target_link_libraries(connect.out rpc pthread)
 add_executable(MDS.out
         project/src/MDS/MDS_main.cpp
         project/src/MDS/MDS.cpp
-        project/src/utils.cpp project/src/MDS/CS_Watcher.cpp project/include/MDS/CS_Watcher.h)
+        project/src/utils.cpp project/src/MDS/CS_Watcher.cpp)
 
 target_link_libraries(MDS.out rpc pthread Boost::filesystem nlohmann_json::nlohmann_json)
 

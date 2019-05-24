@@ -16,6 +16,8 @@
 
 using json = nlohmann::json;
 
+const std::string cs_direcrory = "/CLUSTER/CS";
+
 class CS_Watcher final {
 public:
     explicit CS_Watcher();
