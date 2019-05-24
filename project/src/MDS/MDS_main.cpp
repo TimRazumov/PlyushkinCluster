@@ -6,6 +6,7 @@
 #include <rpc/server.h>
 #include <rpc/client.h>
 #include <inttypes.h>
+#include <thread>
 
 #include <zk/server/configuration.hpp>
 #include <zk/server/server.hpp>
@@ -14,6 +15,7 @@
 #include <zk/types.hpp>
 
 #include "MDS.h"
+#include "CS_Watcher.h"
 #include "utils.hpp"
 
 const std::vector<char> new_data = {' '};
@@ -46,6 +48,9 @@ const std::string help = "\nYou can use:\n"
                          "gs  - get status\n"
                          "st  - stop server\n\n";
 
+void Watcher_thread(CS_Watcher& watcher) {
+    watcher.run();
+}
 
 int main(int argc, const char *argv[]) {
     uint16_t port;
@@ -55,8 +60,8 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    auto config = zk::server::configuration::make_minimal("zk-data", 2821)
-                    .add_server(1, "192.168.3.9");
+    auto config = zk::server::configuration::make_minimal("zk-data", 2181)
+                   .add_server(1, "127.0.0.1");
 
     config.save_file("settings.cfg");
     {
@@ -67,13 +72,26 @@ int main(int argc, const char *argv[]) {
 
     zk::server::server svr(config);
 
-    auto client = zk::client::connect("zk://192.168.3.9:2821").get();
 
-    client.create("/Cluster/MDS/MDS_", new_data, zk::create_mode::sequential | zk::create_mode::ephemeral);
+    auto client = zk::client::connect("zk://127.0.0.1:2181").get();
+/*
+    auto cluster_node_name = client.create("/CLUSTER", std::vector<char>(), zk::create_mode::normal).get().name();
+    std::cout << cluster_node_name << " was created" << std::endl;
+    client.create("/CLUSTER/MDS", new_data, zk::create_mode::normal);
+    auto node_name = client.create("/CLUSTER/CS", std::vector<char>(), zk::create_mode::normal).get().name();
+    std::cout << node_name << " was created" << std::endl;
+*/
     std::cout << "\n\n\n";
     print_thing(client.get_children("/"));
     std::cout << std::endl;
-    print_thing(client.get_children("/Cluster/MDS"));
+    //print_thing(client.get_children("/Cluster/CS"));
+
+    client.close();
+
+    CS_Watcher watcher = CS_Watcher();
+    std::thread watcher_thread(Watcher_thread, std::ref(watcher));
+    watcher_thread.detach();
+
 
     std::cout << "The server is running. Port: " << port << std::endl << help;
 

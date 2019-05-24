@@ -26,7 +26,7 @@ ChunkServer::ChunkServer(uint16_t rpc_server_port)
 }
 
 bool ChunkServer::connect_to_zks(std::string& ip, std::string& port) {
-    auto address = ip + port;
+    auto address = ip + ":" + port;
     auto log = "connect_to_zk_server: " + address;
 
     try {
