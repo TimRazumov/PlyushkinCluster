@@ -1,15 +1,22 @@
 #ifndef PLYUSHKINCLUSTER_MDS_H
 #define PLYUSHKINCLUSTER_MDS_H
 
+
 #include <vector>
 #include <rpc/server.h>
 #include <rpc/client.h>
+ 
+#include <zk/client.hpp>
+#include <zk/multi.hpp>
+#include <zk/server/configuration.hpp>
+#include <zk/server/server.hpp>
+#include <zk/server/server_group.hpp>
 
 #include "MDS_data.h"
 #include "CS_data.h"
 
 
-// TODO: проверка, не отвалились ли ChunkServer
+// TODO: проверка, не отвалились ли CS
 // TODO: действия в случае отключения сервака
 // TODO: организация нескольких MDS
 // TODO: daemon
@@ -38,6 +45,12 @@ private:
 
     // бинд ф-й, которые может выполнять сервер по запросу клиента
     void binding();
+    
+    // for zk
+    void create_mode(const std::string& dir, zk::create_mode mode_type);
+    bool exists_mode(const std::string& path);
+    zk::server::server my_zk_srvr;
+    zk::client my_zk_clt;
 
 public:
     explicit MDS(const uint16_t &port);

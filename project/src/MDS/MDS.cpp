@@ -10,10 +10,51 @@
 #include "MDS.h"
 #include "utils.hpp"
 
-
-// разделяет данные о файле и о расположении чанков, мне кажется, что жуткий костыль, так что TODO
 const char *META_DATA_SEPARATOR = "~~~~";
+static const char META_SEPARATOR = '~';
 
+static zk::server::configuration create_zk_config()
+{
+    zk::server::configuration conf = zk::server::configuration::make_minimal("zk-data", 2181)
+                  .add_server(1, "192.168.1.101")
+                  .add_server(2, "192.168.1.102")
+                  .add_server(3, "192.168.1.103");
+    conf.save_file("settings.cfg");
+    return conf;
+}
+
+static std::vector<char> str_to_vec_ch(const std::string& str)
+{
+    return std::vector<char>(str.begin(), str.end());
+}
+
+static std::vector<char> vec_str_to_vec_ch(const std::vector<std::string>& vec_str)
+{
+    std::vector<char> vec_ch;
+    for (int i = 0, size = vec_str.size(); i < size; i++) {
+        std::vector<char> tmp = str_to_vec_ch(vec_str[i]);
+        vec_ch.insert(vec_ch.end(), tmp.begin(), tmp.end());
+        if (i != size - 1) {
+            vec_ch.push_back(META_SEPARATOR);
+        }    
+    }
+    return vec_ch;
+}
+
+static std::vector<std::string> vec_ch_to_vec_str(const std::vector<char>& vec_ch)
+{
+    std::vector<std::string> vec_str;
+    std::string tmp;
+    for (const char &ch : vec_ch) {
+        if (ch == META_SEPARATOR) {
+            vec_str.push_back(tmp);
+            tmp.clear();
+        } else {
+            tmp += ch;
+        }
+    }
+    return vec_str;
+}
 
 MDS::MDS(const uint16_t &port)
     : this_server(port)
@@ -21,7 +62,15 @@ MDS::MDS(const uint16_t &port)
     , data(master, 2000)
     , copy_count(2)
     , turn_of_servers(0)
+    , my_zk_srvr(create_zk_config())
+    , my_zk_clt(zk::client::connect("zk://127.0.0.1:2181").get())
 {
+    create_mode("/CLUSTER", zk::create_mode::normal);
+    // my_zk_clt.set("/CLUSTER", str_to_vec_ch("id:0")); // TODO: когда кластер станет одной сущностью следует писать его id
+    create_mode("/CLUSTER/MDS", zk::create_mode::normal);
+    create_mode("/CLUSTER/CS", zk::create_mode::normal);
+    create_mode("/CLUSTER/META", zk::create_mode::normal);
+
     // возвращает все исключения, возникшие в забинденных ф-ях в клиент TODO: включить когда настанет время
     // this_server.suppress_exceptions(true);
 
@@ -31,101 +80,56 @@ MDS::MDS(const uint16_t &port)
     if (boost::filesystem::create_directories(MDS_directory)) {
         std::cout << "Create directory " << MDS_directory << std::endl;
     }
+    binding();
+}
 
-    this->binding();
+
+void MDS::create_mode(const std::string& dir, zk::create_mode mode_type) {
+    my_zk_clt.create(dir, {}, mode_type);
+    my_zk_clt.set(dir, {}); // патамушта
+}
+
+bool MDS::exists_mode(const std::string& path) {
+    try {
+        my_zk_clt.get(path).get();
+        return true;
+    } catch (...) {
+        return false;
+    }
 }
 
 // TODO: exceptions
 void MDS::binding() {
+    const std::string meta_zk_dir = "/CLUSTER/META/";
     this_server.bind(
-            "is_meta_exist", [=](const std::string &file_UUID) {
-                add_log(MDS_directory, "is_meta_exist");
-                return boost::filesystem::exists(MDS_directory + file_UUID);
-            }
+        "is_meta_exist", [=](const std::string &file_uuid) {
+            add_log(MDS_directory, "is_meta_exist");
+            return exists_mode(meta_zk_dir + file_uuid);
+        }
     );
-
-    // TODO: тут в вектор забивается вообще все, что есть в файле, что долго. Научите меня нормально работать с файлами, плз, тут говнокод шо песос
     this_server.bind(
-            "set_attr", [=](const std::string &file_UUID, const std::vector<std::string> &attr) {
-                if (!boost::filesystem::exists(MDS_directory + file_UUID)) {
-                    add_log(MDS_directory, "set_attr (new file)");
-
-                    std::ofstream meta_data_out(MDS_directory + file_UUID);
-                    for (const auto &field : attr) {
-                        meta_data_out << field << " ";
-                    }
-
-                    meta_data_out << std::string(META_DATA_SEPARATOR) << " ";
-
-                    meta_data_out.close();
-
-                    return;
-                }
-
-                add_log(MDS_directory, "set_attr");
-
-                std::ifstream meta_data_in(MDS_directory + file_UUID);
-                if (!meta_data_in) {
-                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                }
-
-                std::vector<std::string> chunk_data;
-                std::string buffer;
-
-                while (!meta_data_in.eof()) {
-                    meta_data_in >> buffer;
-                    if (buffer == META_DATA_SEPARATOR) {
-                        meta_data_in >> buffer;
-                        break;
-                    }
-                }
-
-                while (!meta_data_in.eof()) {
-                    chunk_data.push_back(buffer);
-                    meta_data_in >> buffer;
-                }
-
-                meta_data_in.close();
-
-                std::ofstream meta_data_out(MDS_directory + file_UUID);
-                for (const auto &field : attr) {
-                    meta_data_out << field << " ";
-                }
-
-                meta_data_out << std::string(META_DATA_SEPARATOR) << " ";
-
-                for (const auto &field : chunk_data) {
-                    meta_data_out << field << " ";
-                }
-
-                meta_data_out.close();
-            }
+        "set_attr", [=](const std::string &file_uuid, const std::vector<std::string> &attr) {
+            const std::string dir = meta_zk_dir + file_uuid;
+            add_log(MDS_directory, "set_attr");
+            create_mode(dir, zk::create_mode::normal);
+            my_zk_clt.set(dir, vec_str_to_vec_ch(attr));
+            return;
+        }
     );
 
     this_server.bind(
-            "get_attr", [=](const std::string &file_UUID) {
-                add_log(MDS_directory, "get_attr");
-
-                std::ifstream meta_data(MDS_directory + file_UUID);
-                if (!meta_data) {
-                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                }
-
-                std::vector<std::string> attr;
-                std::string buffer;
-
-                while (!meta_data.eof()) {
-                    meta_data >> buffer;
-                    if (buffer == META_DATA_SEPARATOR) {
-                        break;
-                    }
-                    attr.push_back(buffer);
-                }
-
-                meta_data.close();
-
-                rpc::this_handler().respond(attr);
+        "get_attr", [=](const std::string &file_uuid) {
+            add_log(MDS_directory, "get_attr");
+            std::vector<char> attr;
+            const std::string dir = meta_zk_dir + file_uuid;
+            if (exists_mode(dir)) {
+                attr = my_zk_clt.get(meta_zk_dir + file_uuid).get().data();
+            } else {
+                rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
             }
+            rpc::this_handler().respond(vec_ch_to_vec_str(attr));
+            return;
+        }
     );
 
     this_server.bind(
