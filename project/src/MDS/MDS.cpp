@@ -10,7 +10,6 @@
 #include "MDS.h"
 #include "utils.hpp"
 
-const char *META_DATA_SEPARATOR = "~~~~";
 static const char META_SEPARATOR = '~';
 
 static zk::server::configuration create_zk_config()
@@ -110,8 +109,13 @@ void MDS::binding() {
     this_server.bind(
         "set_attr", [=](const std::string &file_uuid, const std::vector<std::string> &attr) {
             const std::string dir = meta_zk_dir + file_uuid;
-            add_log(MDS_directory, "set_attr");
-            create_mode(dir, zk::create_mode::normal);
+            if (exists_mode(dir)) {
+                add_log(MDS_directory, "set_attr (new node)");
+                create_mode(dir, zk::create_mode::normal);
+                std::ofstream file_chunk(dir);
+            } else {
+                add_log(MDS_directory, "set_attr");
+            }
             my_zk_clt.set(dir, vec_str_to_vec_ch(attr));
             return;
         }
@@ -140,17 +144,9 @@ void MDS::binding() {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
 
-                std::ifstream meta_data_in(MDS_directory + file_UUID);
-                if (!meta_data_in) {
+                std::ifstream file_chunk(MDS_directory + file_UUID);
+                if (!file_chunk) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                }
-
-                while (!meta_data_in.eof()) {
-                    std::string buffer;
-                    meta_data_in >> buffer;
-                    if (buffer == META_DATA_SEPARATOR) {
-                        break;
-                    }
                 }
 
                 std::vector<size_t> CS_with_chunk;
@@ -158,28 +154,28 @@ void MDS::binding() {
                     size_t num_in_file;
 
                     // считать элемент, отвечающий за номер чанка
-                    meta_data_in >> num_in_file;
+                    file_chunk >> num_in_file;
 
-                    if (meta_data_in.eof()) {
+                    if (file_chunk.eof()) {
                         break;
                     }
 
                     if (num_in_file == chunk_num) {
                         // запомнить номера серверов, где хранится данный чанк
                         for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                            meta_data_in >> num_in_file;
+                            file_chunk >> num_in_file;
                             CS_with_chunk.push_back(num_in_file);
                         }
                         break;
                     } else {
                         // скипнуть ненужную информацию
                         for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                            meta_data_in >> num_in_file;
+                            file_chunk >> num_in_file;
                         }
                     }
                 }
 
-                meta_data_in.close();
+                file_chunk.close();
 
                 if (CS_with_chunk.empty()) {
                     // действия в случае, если чанка с таким номером не существует
@@ -223,36 +219,28 @@ void MDS::binding() {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
 
-                std::ifstream meta_data_in(MDS_directory + file_UUID);
-                if (!meta_data_in) {
+                std::ifstream file_chunk(MDS_directory + file_UUID);
+                if (!file_chunk) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                }
-
-                while (!meta_data_in.eof()) {
-                    std::string buffer;
-                    meta_data_in >> buffer;
-                    if (buffer == META_DATA_SEPARATOR) {
-                        break;
-                    }
                 }
 
                 size_t num_in_file;
 
                 // считать элемент, отвечающий за номер чанка
-                meta_data_in >> num_in_file;
+                file_chunk >> num_in_file;
 
-                if (meta_data_in.eof()) {
+                if (file_chunk.eof()) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
 
                 // взять номер первого сервера, где хранится данный чанк
-                meta_data_in >> num_in_file;
+                file_chunk >> num_in_file;
 
-                if (meta_data_in.eof()) {
+                if (file_chunk.eof()) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
 
-                meta_data_in.close();
+                file_chunk.close();
 
                 rpc::client CS(known_CS[num_in_file].get_info().addr, known_CS[num_in_file].get_info().port);
 
@@ -268,17 +256,9 @@ void MDS::binding() {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
 
-                std::ifstream meta_data_in(MDS_directory + old_file_UUID);
-                if (!meta_data_in) {
+                std::ifstream file_chunk(MDS_directory + old_file_UUID);
+                if (!file_chunk) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                }
-
-                while (!meta_data_in.eof()) {
-                    std::string buffer;
-                    meta_data_in >> buffer;
-                    if (buffer == META_DATA_SEPARATOR) {
-                        break;
-                    }
                 }
 
                 while (true) {
@@ -286,14 +266,14 @@ void MDS::binding() {
                     size_t chunk_num;
                     size_t server_num;
 
-                    meta_data_in >> chunk_num;
+                    file_chunk >> chunk_num;
 
-                    if (meta_data_in.eof()) {
+                    if (file_chunk.eof()) {
                         break;
                     }
 
                     for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                        meta_data_in >> server_num;
+                        file_chunk >> server_num;
                         CS_with_chunk.push_back(server_num);
                     }
 
@@ -309,7 +289,7 @@ void MDS::binding() {
                     CS_with_chunk.clear();
                 }
 
-                meta_data_in.close();
+                file_chunk.close();
 
                 boost::filesystem::rename(MDS_directory + old_file_UUID, MDS_directory + new_file_UUID);
             }
@@ -323,17 +303,9 @@ void MDS::binding() {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
 
-                std::ifstream meta_data_in(MDS_directory + file_UUID);
-                if (!meta_data_in) {
+                std::ifstream file_chunk(MDS_directory + file_UUID);
+                if (!file_chunk) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                }
-
-                while (!meta_data_in.eof()) {
-                    std::string buffer;
-                    meta_data_in >> buffer;
-                    if (buffer == META_DATA_SEPARATOR) {
-                        break;
-                    }
                 }
 
                 std::vector<size_t> CS_with_chunk;
@@ -341,28 +313,28 @@ void MDS::binding() {
                     size_t num_in_file;
 
                     // считать элемент, отвечающий за номер чанка
-                    meta_data_in >> num_in_file;
+                    file_chunk >> num_in_file;
 
-                    if (meta_data_in.eof()) {
+                    if (file_chunk.eof()) {
                         break;
                     }
 
                     if (num_in_file == chunk_num) {
                         // запомнить номера серверов, где хранится данный чанк
                         for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                            meta_data_in >> num_in_file;
+                            file_chunk >> num_in_file;
                             CS_with_chunk.push_back(num_in_file);
                         }
                         break;
                     } else {
                         // скипнуть ненужную информацию
                         for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                            meta_data_in >> num_in_file;
+                            file_chunk >> num_in_file;
                         }
                     }
                 }
 
-                meta_data_in.close();
+                file_chunk.close();
 
                 if (CS_with_chunk.empty()) {
                     // действия в случае, если чанка с таким номером не существует
@@ -383,40 +355,25 @@ void MDS::binding() {
     this_server.bind(
             "delete_file", [=](const std::string &file_UUID) {
                 add_log(MDS_directory, "delete_file");
-
                 if (known_CS.empty()) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
-
-                std::ifstream meta_data_in(MDS_directory + file_UUID);
-                if (!meta_data_in) {
+                std::ifstream file_chunk(MDS_directory + file_UUID);
+                if (!file_chunk) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
-
-                while (!meta_data_in.eof()) {
-                    std::string buffer;
-                    meta_data_in >> buffer;
-                    if (buffer == META_DATA_SEPARATOR) {
-                        break;
-                    }
-                }
-
                 while (true) {
                     std::vector<size_t> CS_with_chunk;
                     size_t chunk_num;
                     size_t server_num;
-
-                    meta_data_in >> chunk_num;
-
-                    if (meta_data_in.eof()) {
+                    file_chunk >> chunk_num;
+                    if (file_chunk.eof()) {
                         break;
                     }
-
                     for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                        meta_data_in >> server_num;
+                        file_chunk >> server_num;
                         CS_with_chunk.push_back(server_num);
                     }
-
                     for (const auto &srv : CS_with_chunk) {
                         {
                             rpc::client CS(known_CS[srv].get_info().addr, known_CS[srv].get_info().port);
@@ -424,12 +381,9 @@ void MDS::binding() {
                             CS.call("delete_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)));
                         }
                     }
-
                     CS_with_chunk.clear();
                 }
-
-                meta_data_in.close();
-
+                file_chunk.close();
                 boost::filesystem::remove(MDS_directory + file_UUID);
             }
     );
