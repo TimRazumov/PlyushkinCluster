@@ -39,7 +39,7 @@ nlohmann::json ConcreteCsData::get_data() {
     return nlohmann::json{
                             {"ip", m_ip},
                             {"port", m_port},
-                            {"m_disk_free_space", m_disk_free_space},
+                            {"disk_free_space", m_disk_free_space},
                             {"disk_size", m_disk_size}
                          };
 }

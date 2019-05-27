@@ -11,6 +11,8 @@
 #include <zk/server/configuration.hpp>
 #include <zk/server/server.hpp>
 #include <zk/server/server_group.hpp>
+#include <zk/buffer.hpp>
+#include <nlohmann/json.hpp>
 
 #include "MDS_data.h"
 #include "CS_data.h"
@@ -49,7 +51,7 @@ private:
     // for zk
     void create_mode(const std::string& dir, zk::create_mode mode_type);
     bool exists_mode(const std::string& path);
-    zk::server::server my_zk_srvr;
+    // zk::server::server my_zk_srvr;
     zk::client my_zk_clt;
 
 public:

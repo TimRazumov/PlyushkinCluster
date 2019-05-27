@@ -73,13 +73,14 @@ bool ChunkServer::register_cs_rpc() {
     try {
         auto cs_global_node = m_zk_client->get("/Cluster/CS").get();
 
-        auto cluster_cs_data = ClusterCsData(nlohmann::json::parse(cs_global_node.data().data()));
+        auto cluster_cs_data = ClusterCsData(nlohmann::json::parse(cs_global_node.data()));
         auto concrete_cs_data = ConcreteCsData(m_rpc_server_port);
 
         m_this_cs_path = "/Cluster/CS/" + std::to_string(cluster_cs_data.get_id());
         auto data = concrete_cs_data.get_data().dump();
 
-        m_zk_client->create(m_this_cs_path, zk::buffer(data.begin(), data.end()), zk::create_mode::ephemeral);
+        m_zk_client->create(m_this_cs_path, zk::buffer(data.begin(), data.end()),
+                zk::create_mode::ephemeral);
 
         m_is_registered = true;
     } catch (zk::error& error) {

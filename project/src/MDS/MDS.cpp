@@ -10,11 +10,13 @@
 #include "MDS.h"
 #include "utils.hpp"
 
+/*
 static const char META_SEPARATOR = '~';
+
 
 static zk::server::configuration create_zk_config()
 {
-    zk::server::configuration conf = zk::server::configuration::make_minimal("zk-data", 2181)
+    zk::server::configuration conf = zk::server::configuration::make_minimal("zk-data", 2182)
                   .add_server(1, "192.168.1.101")
                   .add_server(2, "192.168.1.102")
                   .add_server(3, "192.168.1.103");
@@ -54,6 +56,7 @@ static std::vector<std::string> vec_ch_to_vec_str(const std::vector<char>& vec_c
     }
     return vec_str;
 }
+*/
 
 MDS::MDS(const uint16_t &port)
     : this_server(port)
@@ -61,14 +64,18 @@ MDS::MDS(const uint16_t &port)
     , data(master, 2000)
     , copy_count(2)
     , turn_of_servers(0)
-    , my_zk_srvr(create_zk_config())
-    , my_zk_clt(zk::client::connect("zk://127.0.0.1:2181").get())
+    //, my_zk_srvr(create_zk_config())
+    , my_zk_clt(zk::client::connect("zk://127.0.0.1:2182").get())
 {
-    create_mode("/CLUSTER", zk::create_mode::normal);
-    // my_zk_clt.set("/CLUSTER", str_to_vec_ch("id:0")); // TODO: когда кластер станет одной сущностью следует писать его id
-    create_mode("/CLUSTER/MDS", zk::create_mode::normal);
-    create_mode("/CLUSTER/CS", zk::create_mode::normal);
-    create_mode("/CLUSTER/META", zk::create_mode::normal);
+    if (!exists_mode("/CLUSTER")) {
+        create_mode("/CLUSTER", zk::create_mode::normal);
+        // my_zk_clt.set("/CLUSTER", str_to_vec_ch("id:0")); // TODO: когда кластер станет одной сущностью следует писать его id
+        create_mode("/CLUSTER/MDS", zk::create_mode::normal);
+        create_mode("/CLUSTER/CS", zk::create_mode::normal);
+        create_mode("/CLUSTER/META", zk::create_mode::normal);
+    }
+
+    create_mode("/CLUSTER/MDS/", zk::create_mode::ephemeral | zk::create_mode::sequential);
 
     // возвращает все исключения, возникшие в забинденных ф-ях в клиент TODO: включить когда настанет время
     // this_server.suppress_exceptions(true);
@@ -79,6 +86,7 @@ MDS::MDS(const uint16_t &port)
     if (boost::filesystem::create_directories(MDS_directory)) {
         std::cout << "Create directory " << MDS_directory << std::endl;
     }
+
     binding();
 }
 
@@ -89,12 +97,15 @@ void MDS::create_mode(const std::string& dir, zk::create_mode mode_type) {
 }
 
 bool MDS::exists_mode(const std::string& path) {
+    return static_cast<bool>(my_zk_clt.exists(path).get());
+    /*
     try {
         my_zk_clt.get(path).get();
         return true;
     } catch (...) {
         return false;
     }
+     */
 }
 
 // TODO: exceptions
@@ -108,31 +119,40 @@ void MDS::binding() {
     );
     this_server.bind(
         "set_attr", [=](const std::string &file_uuid, const std::vector<std::string> &attr) {
-            const std::string dir = meta_zk_dir + file_uuid;
-            if (exists_mode(dir)) {
-                add_log(MDS_directory, "set_attr (new node)");
-                create_mode(dir, zk::create_mode::normal);
-                std::ofstream file_chunk(dir);
-            } else {
+            const std::string meta_path = meta_zk_dir + file_uuid;
+            if (exists_mode(meta_path)) {
                 add_log(MDS_directory, "set_attr");
+            } else {
+                add_log(MDS_directory, "set_attr (new node)");
+                create_mode(meta_path, zk::create_mode::normal);
+                std::ofstream file_chunk(meta_path);
             }
-            my_zk_clt.set(dir, vec_str_to_vec_ch(attr));
-            return;
+
+            auto info_json = nlohmann::json::parse(my_zk_clt.get(meta_path).get().data());
+
+            auto meta_entity_info = MetaEntityInfo(info_json);
+            meta_entity_info.set_attr(const_cast<std::vector<std::string> &>(attr));
+
+            auto buff = meta_entity_info.to_json().dump();
+
+            my_zk_clt.set(meta_path, zk::buffer(buff.begin(), buff.end()));
         }
     );
 
     this_server.bind(
         "get_attr", [=](const std::string &file_uuid) {
             add_log(MDS_directory, "get_attr");
-            std::vector<char> attr;
-            const std::string dir = meta_zk_dir + file_uuid;
-            if (exists_mode(dir)) {
-                attr = my_zk_clt.get(meta_zk_dir + file_uuid).get().data();
+            std::vector<std::string> attr;
+            const std::string meta_path = meta_zk_dir + file_uuid;
+            if (exists_mode(meta_path)) {
+                auto info_json = nlohmann::json::parse(
+                        my_zk_clt.get(meta_zk_dir + file_uuid).get().data());
+
+                attr = std::move(MetaEntityInfo(info_json).get_attr());
             } else {
                 rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
             }
-            rpc::this_handler().respond(vec_ch_to_vec_str(attr));
-            return;
+            rpc::this_handler().respond(std::move(attr));
         }
     );
 
