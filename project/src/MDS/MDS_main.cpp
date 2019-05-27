@@ -74,13 +74,13 @@ int main(int argc, const char *argv[]) {
 
 
     auto client = zk::client::connect("zk://127.0.0.1:2181").get();
-/*
-    auto cluster_node_name = client.create("/CLUSTER", std::vector<char>(), zk::create_mode::normal).get().name();
+
+    auto cluster_node_name = client.create("/CLUSTER", std::vector<char>(), zk::create_mode::ephemeral).get().name();
     std::cout << cluster_node_name << " was created" << std::endl;
-    client.create("/CLUSTER/MDS", new_data, zk::create_mode::normal);
-    auto node_name = client.create("/CLUSTER/CS", std::vector<char>(), zk::create_mode::normal).get().name();
+    client.create("/CLUSTER/MDS", new_data, zk::create_mode::ephemeral);
+    auto node_name = client.create("/CLUSTER/CS", std::vector<char>(), zk::create_mode::ephemeral).get().name();
     std::cout << node_name << " was created" << std::endl;
-*/
+
     std::cout << "\n\n\n";
     print_thing(client.get_children("/"));
     std::cout << std::endl;
