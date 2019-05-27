@@ -16,6 +16,14 @@ MetaEntityInfo::MetaEntityInfo(nlohmann::json &json) : MetaEntityInfo(std::move(
 }
 
 
+nlohmann::json MetaEntityInfo::get_empty_json() {
+    return nlohmann::json{
+            {"attr", std::vector<std::string>()},
+            {"raid", -1},
+            {"on_cs", std::set<uint32_t >()}
+    };
+}
+
 nlohmann::json MetaEntityInfo::to_json() {
     return nlohmann::json{
                             {"attr", m_attr},
@@ -54,6 +62,12 @@ std::set<uint32_t> MetaEntityInfo::get_on_cs_copy() {
 ChunkEntityInfo::ChunkEntityInfo(nlohmann::json &&json)
     : m_locations(json["locations"].get<std::vector<uint32_t>>()) {
 
+}
+
+nlohmann::json ChunkEntityInfo::get_empty_json() {
+    return nlohmann::json{
+                            {"locations", std::vector<uint32_t>()}
+                         };
 }
 
 ChunkEntityInfo::ChunkEntityInfo(nlohmann::json &json) : ChunkEntityInfo(std::move(json)) {

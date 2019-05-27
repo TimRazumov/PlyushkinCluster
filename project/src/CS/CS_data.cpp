@@ -4,7 +4,7 @@
 
 #include "CS_data.h"
 
-ClusterCsData::ClusterCsData(nlohmann::json json)
+ClusterCsData::ClusterCsData(nlohmann::json &json)
                 : m_free_id_stack(json["free_id_stack"].get<std::vector<uint32_t>>())
                 , m_new_id(json["new_id"].get<uint32_t>()) {
 
@@ -16,6 +16,15 @@ nlohmann::json ClusterCsData::get_data() {
                             {"new_id", m_new_id}
                          };
 }
+
+
+nlohmann::json ClusterCsData::get_empty_json() {
+    return nlohmann::json{
+                            {"free_id_stack", std::vector<uint32_t>()},
+                            {"new_id", 0}
+                         };
+}
+
 
 uint32_t ClusterCsData::get_id() {
     if (m_this_id == (uint32_t) -1) {
@@ -45,10 +54,10 @@ nlohmann::json ConcreteCsData::get_data() {
 }
 
 std::string ConcreteCsData::getIp() { // TODO(nickeskov): не уверен, что рабоатет
-    boost::asio::io_service io_service;
-    boost::asio::ip::tcp::socket socket(io_service);
+    std::string ip;
+    std::cout << "Please, input this CS ip adress" << std::endl;
+    std::cin >> ip;
 
-    std::string ip = socket.remote_endpoint().address().to_string();
     return ip;
 }
 

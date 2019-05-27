@@ -40,6 +40,7 @@ public:
     explicit MetaEntityInfo(nlohmann::json &&json);
     // explicit MetaEntityInfo(std::vector<std::string> &info); // For new node
 
+    static nlohmann::json get_empty_json();
     nlohmann::json to_json();
 
     std::vector<std::string> &get_attr();
@@ -61,6 +62,7 @@ public:
     explicit ChunkEntityInfo(nlohmann::json &json);
     explicit ChunkEntityInfo(nlohmann::json &&json);
 
+    static nlohmann::json get_empty_json();
     nlohmann::json to_json();
 
     std::vector<uint32_t> &get_locations();

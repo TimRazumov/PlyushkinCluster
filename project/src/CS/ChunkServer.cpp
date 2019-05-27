@@ -26,11 +26,11 @@ ChunkServer::ChunkServer(uint16_t rpc_server_port)
 }
 
 bool ChunkServer::connect_to_zks(std::string& ip, std::string& port) {
-    auto address = ip + port;
+    auto address = ip + ":" + port;
     auto log = "connect_to_zk_server: " + address;
 
     try {
-        m_zk_client = std::make_unique<zk::client>(zk::client::connect("zk://" + address).get());
+        m_zk_client = std::make_unique<zk::client>(std::move(zk::client::connect("zk://" + address).get()));
 
         m_is_connected_to_zks = true;
         log = "#SUCCESS#" + log;
@@ -66,20 +66,31 @@ bool ChunkServer::register_cs_rpc() {
         return false;
     }
 
-    if (!m_is_registered){
+    if (m_is_registered){
         return true;
     }
 
     try {
-        auto cs_global_node = m_zk_client->get("/Cluster/CS").get();
+        auto cs_global_node = m_zk_client->get("/CLUSTER/CS").get();
 
-        auto cluster_cs_data = ClusterCsData(nlohmann::json::parse(cs_global_node.data()));
+        auto cs_global_data = cs_global_node.data();
+
+        auto json = cs_global_data.size() == 0
+                ? ClusterCsData::get_empty_json()
+                : nlohmann::json::parse(cs_global_data);
+
+        auto cluster_cs_data = ClusterCsData(json);
         auto concrete_cs_data = ConcreteCsData(m_rpc_server_port);
 
-        m_this_cs_path = "/Cluster/CS/" + std::to_string(cluster_cs_data.get_id());
-        auto data = concrete_cs_data.get_data().dump();
+        m_this_cs_path = "/CLUSTER/CS/" + std::to_string(cluster_cs_data.get_id());
 
-        m_zk_client->create(m_this_cs_path, zk::buffer(data.begin(), data.end()),
+        auto cluster_cs_str_data = cluster_cs_data.get_data().dump();
+        auto cs_str_data = concrete_cs_data.get_data().dump();
+
+
+        m_zk_client->set("/CLUSTER/CS", zk::buffer(cluster_cs_str_data.begin(), cluster_cs_str_data.end()));
+
+        m_zk_client->create(m_this_cs_path, zk::buffer(cs_str_data.begin(), cs_str_data.end()),
                 zk::create_mode::ephemeral);
 
         m_is_registered = true;

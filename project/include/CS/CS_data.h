@@ -4,7 +4,6 @@
 #include <vector>
 #include <iostream>
 #include <ifaddrs.h>
-#include <boost/asio.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -28,10 +27,12 @@ public:
 
 class ClusterCsData final {
 public:
-    explicit ClusterCsData(nlohmann::json json);
+    explicit ClusterCsData(nlohmann::json &json);
 
     uint32_t get_id();
     nlohmann::json get_data();
+
+    static nlohmann::json get_empty_json();
 
 private:
     std::vector<uint32_t> m_free_id_stack;

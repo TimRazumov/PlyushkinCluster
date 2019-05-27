@@ -70,10 +70,14 @@ void MDS::binding() {
                 add_log(MDS_directory, "set_attr (new node): " + file_uuid);
                 create_empty_node(meta_path, zk::create_mode::normal);
                 create_empty_node(meta_path + "/chunk_locations", zk::create_mode::normal);
-                std::ofstream file_chunk(meta_path);
             }
 
-            auto info_json = nlohmann::json::parse(my_zk_clt.get(meta_path).get().data());
+            auto info_old_buff = my_zk_clt.get(meta_path).get().data();
+
+            nlohmann::json info_json;
+                info_json = info_old_buff.size() != 0
+                        ? nlohmann::json::parse(my_zk_clt.get(meta_path).get().data())
+                        : MetaEntityInfo::get_empty_json();
 
             auto meta_entity_info = MetaEntityInfo(info_json);
             meta_entity_info.set_attr(const_cast<std::vector<std::string> &>(attr));
@@ -90,8 +94,8 @@ void MDS::binding() {
             std::vector<std::string> attr;
             const std::string meta_path = meta_zk_dir + file_uuid;
             if (exists_node(meta_path)) {
-                auto info_json = nlohmann::json::parse(
-                        my_zk_clt.get(meta_zk_dir + file_uuid).get().data());
+                auto info_buff = my_zk_clt.get(meta_path).get().data();
+                auto info_json = nlohmann::json::parse(info_buff);
 
                 attr = std::move(MetaEntityInfo(info_json).get_attr());
             } else {
