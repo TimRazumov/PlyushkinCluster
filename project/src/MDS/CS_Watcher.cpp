@@ -84,39 +84,6 @@ void CS_Watcher::renovate(const std::set<std::string> &fallen_cs) {
     }
 }
 
-/*
-void CS_Watcher::renovate(const std::set<std::string> &fallen_cs) {
-    auto meta_file_list = client.get_children(meta_directory).get().children();
-
-    for (const auto& meta_file_name: meta_file_list) {
-        std::string full_meta_node_path = meta_directory + "/" + meta_file_name;
-        json meta = json::parse(client.get(full_meta_node_path).get().data());
-
-        auto on_cs = meta["on_cs"].get<std::set<std::string>>();
-        for (const auto& cs : fallen_cs) {
-            if (on_cs.find(cs) != on_cs.end()) {
-                auto raid = meta["raid"].get<int32_t>();
-                bool status = false;
-
-                if (raid == 0) {
-                    Renovator_0 renovator(client,full_meta_node_path, fallen_cs);
-                    status = renovator.run();
-                }
-
-                if (raid == 1) {
-                    Renovator_1 renovator(client, meta_file_name, fallen_cs);
-                    status = renovator.run();
-                }
-
-                if (!status) {
-                    std::cerr << "Error while renovation" << std::endl;
-                }
-            }
-        }
-    }
-}
-*/
-
 Renovator::Renovator(zk::client &client, const std::string& CS_id): client(client), m_CS_id(CS_id) {}
 
 void Renovator::run() {
@@ -172,15 +139,19 @@ void Renovator::restore_raid_1(const std::string &meta_file_name) {
 
                 if (!new_CS_id.empty()) {
                     std::cout << "[Renovator]: chunk " << meta_file_name + num_chunk << " copied to "
-                        << new_CS_id << std::endl;
+                              << new_CS_id << std::endl;
 
                     CS_id_set.erase(m_CS_id);
                     CS_id_set.insert(new_CS_id);
 
                     json new_data = {"locations", CS_id_set};
                     client.set(chunk_locations_node_name + "/" + num_chunk, new_data);
+                } else {
+                    std::cout << "[Renovator]: no CS is enable for copying chunk " << num_chunk << std::endl;
                 }
             }
+            std::cout << "[Renovator]: couldn't get chunk " << num_chunk
+                << " from any CS" << std::endl;
         }
     }
 }
@@ -237,38 +208,3 @@ std::string Renovator::send_chunk(const std::set<std::string>& CS_id_set, const 
 
     return std::string();
 }
-
-/*
-Renovator_0::Renovator_0(zk::client &client, const std::string &meta_node_name,
-        const std::set<std::string> &fallen_cs) : Renovator(client, meta_node_name, fallen_cs) {}
-
-bool Renovator_0::run() {
-    std::cout << "File " << meta_node_name.substr(meta_node_name.size() - 4)
-        << " damaged(RAID 0)" << std::endl;
-    return true;
-}
-
-Renovator_1::Renovator_1(zk::client &client, const std::string &meta_node_name,
-        const std::set<std::string> &fallen_cs) : Renovator(client, meta_node_name, fallen_cs) {
-}
-
-bool Renovator_1::run() {
-    const std::string chunk_locations_node_name = meta_directory + "/"
-            + meta_node_name + "/chunk_locations";
-    auto chunk_locs = client.get_children(chunk_locations_node_name).get().children();
-
-    for (const auto& chunk_uuid : chunk_locs) {
-        json json_cs_id = json::parse(client.get(chunk_locations_node_name + "/" + chunk_uuid)
-                .get().data());
-        auto cs_ids = json_cs_id["location"].get<std::set<std::string>>();
-
-        for (const auto& cs_id : cs_ids) {
-            if (fallen_cs.find(cs_id) != fallen_cs.end()) {
-
-            }
-        }
-
-
-    }
-}
- */
