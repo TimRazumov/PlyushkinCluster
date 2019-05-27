@@ -49,8 +49,8 @@ private:
     void binding();
     
     // for zk
-    void create_mode(const std::string& dir, zk::create_mode mode_type);
-    bool exists_mode(const std::string& path);
+    void create_empty_node(const std::string &dir, zk::create_mode node_type);
+    bool exists_node(const std::string &path);
     // zk::server::server my_zk_srvr;
     zk::client my_zk_clt;
 

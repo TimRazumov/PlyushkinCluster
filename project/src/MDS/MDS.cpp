@@ -10,53 +10,6 @@
 #include "MDS.h"
 #include "utils.hpp"
 
-/*
-static const char META_SEPARATOR = '~';
-
-
-static zk::server::configuration create_zk_config()
-{
-    zk::server::configuration conf = zk::server::configuration::make_minimal("zk-data", 2182)
-                  .add_server(1, "192.168.1.101")
-                  .add_server(2, "192.168.1.102")
-                  .add_server(3, "192.168.1.103");
-    conf.save_file("settings.cfg");
-    return conf;
-}
-
-static std::vector<char> str_to_vec_ch(const std::string& str)
-{
-    return std::vector<char>(str.begin(), str.end());
-}
-
-static std::vector<char> vec_str_to_vec_ch(const std::vector<std::string>& vec_str)
-{
-    std::vector<char> vec_ch;
-    for (int i = 0, size = vec_str.size(); i < size; i++) {
-        std::vector<char> tmp = str_to_vec_ch(vec_str[i]);
-        vec_ch.insert(vec_ch.end(), tmp.begin(), tmp.end());
-        if (i != size - 1) {
-            vec_ch.push_back(META_SEPARATOR);
-        }    
-    }
-    return vec_ch;
-}
-
-static std::vector<std::string> vec_ch_to_vec_str(const std::vector<char>& vec_ch)
-{
-    std::vector<std::string> vec_str;
-    std::string tmp;
-    for (const char &ch : vec_ch) {
-        if (ch == META_SEPARATOR) {
-            vec_str.push_back(tmp);
-            tmp.clear();
-        } else {
-            tmp += ch;
-        }
-    }
-    return vec_str;
-}
-*/
 
 MDS::MDS(const uint16_t &port)
     : this_server(port)
@@ -64,19 +17,18 @@ MDS::MDS(const uint16_t &port)
     , data(master, 2000)
     , copy_count(2)
     , turn_of_servers(0)
-    //, my_zk_srvr(create_zk_config())
     , my_zk_clt(zk::client::connect("zk://127.0.0.1:2182").get())
 {
-    if (!exists_mode("/CLUSTER")) {
-        create_mode("/CLUSTER", zk::create_mode::normal);
+    if (!exists_node("/CLUSTER")) {
+        create_empty_node("/CLUSTER", zk::create_mode::normal);
         // my_zk_clt.set("/CLUSTER", str_to_vec_ch("id:0")); // TODO: когда кластер станет одной сущностью следует писать его id
-        create_mode("/CLUSTER/MDS", zk::create_mode::normal);
-        create_mode("/CLUSTER/RENOVATION", zk::create_mode::normal);
-        create_mode("/CLUSTER/CS", zk::create_mode::normal);
-        create_mode("/CLUSTER/META", zk::create_mode::normal);
+        create_empty_node("/CLUSTER/MDS", zk::create_mode::normal);
+        create_empty_node("/CLUSTER/RENOVATION", zk::create_mode::normal);
+        create_empty_node("/CLUSTER/CS", zk::create_mode::normal);
+        create_empty_node("/CLUSTER/META", zk::create_mode::normal);
     }
 
-    create_mode("/CLUSTER/MDS/", zk::create_mode::ephemeral | zk::create_mode::sequential);
+    create_empty_node("/CLUSTER/MDS/", zk::create_mode::ephemeral | zk::create_mode::sequential);
 
     // возвращает все исключения, возникшие в забинденных ф-ях в клиент TODO: включить когда настанет время
     // this_server.suppress_exceptions(true);
@@ -92,21 +44,12 @@ MDS::MDS(const uint16_t &port)
 }
 
 
-void MDS::create_mode(const std::string& dir, zk::create_mode mode_type) {
-    my_zk_clt.create(dir, {}, mode_type);
-    my_zk_clt.set(dir, {}); // патамушта
+void MDS::create_empty_node(const std::string &dir, zk::create_mode node_type) {
+    my_zk_clt.create(dir, {}, node_type);
 }
 
-bool MDS::exists_mode(const std::string& path) {
+bool MDS::exists_node(const std::string &path) {
     return static_cast<bool>(my_zk_clt.exists(path).get());
-    /*
-    try {
-        my_zk_clt.get(path).get();
-        return true;
-    } catch (...) {
-        return false;
-    }
-     */
 }
 
 // TODO: exceptions
@@ -115,17 +58,18 @@ void MDS::binding() {
     this_server.bind(
         "is_meta_exist", [=](const std::string &file_uuid) {
             add_log(MDS_directory, "is_meta_exist");
-            return exists_mode(meta_zk_dir + file_uuid);
+            return exists_node(meta_zk_dir + file_uuid);
         }
     );
     this_server.bind(
         "set_attr", [=](const std::string &file_uuid, const std::vector<std::string> &attr) {
             const std::string meta_path = meta_zk_dir + file_uuid;
-            if (exists_mode(meta_path)) {
-                add_log(MDS_directory, "set_attr");
+            if (exists_node(meta_path)) {
+                add_log(MDS_directory, "set_attr: " + file_uuid);
             } else {
-                add_log(MDS_directory, "set_attr (new node)");
-                create_mode(meta_path, zk::create_mode::normal);
+                add_log(MDS_directory, "set_attr (new node): " + file_uuid);
+                create_empty_node(meta_path, zk::create_mode::normal);
+                create_empty_node(meta_path + "/chunk_locations", zk::create_mode::normal);
                 std::ofstream file_chunk(meta_path);
             }
 
@@ -145,7 +89,7 @@ void MDS::binding() {
             add_log(MDS_directory, "get_attr");
             std::vector<std::string> attr;
             const std::string meta_path = meta_zk_dir + file_uuid;
-            if (exists_mode(meta_path)) {
+            if (exists_node(meta_path)) {
                 auto info_json = nlohmann::json::parse(
                         my_zk_clt.get(meta_zk_dir + file_uuid).get().data());
 
