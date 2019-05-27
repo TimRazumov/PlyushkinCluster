@@ -2,7 +2,7 @@
 // Created by nickeskov on 27.05.19.
 //
 
-#include "MDS_data.h"
+#include "EntitiesInfo/MDS_data.h"
 
 MetaEntityInfo::MetaEntityInfo(nlohmann::json &&json)
     : m_attr(json["attr"].get<std::vector<std::string>>())
@@ -19,7 +19,7 @@ MetaEntityInfo::MetaEntityInfo(nlohmann::json &json) : MetaEntityInfo(std::move(
 nlohmann::json MetaEntityInfo::get_empty_json() {
     return nlohmann::json{
             {"attr", std::vector<std::string>()},
-            {"raid", -1},
+            {"raid", 1},
             {"on_cs", std::set<uint32_t >()}
     };
 }

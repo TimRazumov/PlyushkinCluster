@@ -76,16 +76,16 @@ bool ChunkServer::register_cs_rpc() {
         auto cs_global_data = cs_global_node.data();
 
         auto json = cs_global_data.size() == 0
-                ? ClusterCsData::get_empty_json()
+                ? ClusterCsEntityInfo::get_empty_json()
                 : nlohmann::json::parse(cs_global_data);
 
-        auto cluster_cs_data = ClusterCsData(json);
-        auto concrete_cs_data = ConcreteCsData(m_rpc_server_port);
+        auto cluster_cs_data = ClusterCsEntityInfo(json);
+        auto concrete_cs_data = ConcreteCsEntityInfo(m_rpc_server_port);
 
         m_this_cs_path = "/CLUSTER/CS/" + std::to_string(cluster_cs_data.get_id());
 
-        auto cluster_cs_str_data = cluster_cs_data.get_data().dump();
-        auto cs_str_data = concrete_cs_data.get_data().dump();
+        auto cluster_cs_str_data = cluster_cs_data.to_json().dump();
+        auto cs_str_data = concrete_cs_data.to_json().dump();
 
 
         m_zk_client->set("/CLUSTER/CS", zk::buffer(cluster_cs_str_data.begin(), cluster_cs_str_data.end()));

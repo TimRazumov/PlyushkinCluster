@@ -38,7 +38,6 @@ class MetaEntityInfo final {
 public:
     explicit MetaEntityInfo(nlohmann::json &json);
     explicit MetaEntityInfo(nlohmann::json &&json);
-    // explicit MetaEntityInfo(std::vector<std::string> &info); // For new node
 
     static nlohmann::json get_empty_json();
     nlohmann::json to_json();

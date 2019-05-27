@@ -46,6 +46,7 @@ MDS::MDS(const uint16_t &port)
 
 void MDS::create_empty_node(const std::string &dir, zk::create_mode node_type) {
     my_zk_clt.create(dir, {}, node_type);
+    my_zk_clt.set(dir, {});
 }
 
 bool MDS::exists_node(const std::string &path) {
@@ -54,16 +55,18 @@ bool MDS::exists_node(const std::string &path) {
 
 // TODO: exceptions
 void MDS::binding() {
-    const std::string meta_zk_dir = "/CLUSTER/META/";
+    const std::string META_ZK_DIR = "/CLUSTER/META/";
+    const std::string GLOBAL_CS_PATH = "/CLUSTER/CS";
     this_server.bind(
         "is_meta_exist", [=](const std::string &file_uuid) {
             add_log(MDS_directory, "is_meta_exist");
-            return exists_node(meta_zk_dir + file_uuid);
+            return exists_node(META_ZK_DIR + file_uuid);
         }
     );
     this_server.bind(
         "set_attr", [=](const std::string &file_uuid, const std::vector<std::string> &attr) {
-            const std::string meta_path = meta_zk_dir + file_uuid;
+            const std::string meta_path = META_ZK_DIR + file_uuid;
+
             if (exists_node(meta_path)) {
                 add_log(MDS_directory, "set_attr: " + file_uuid);
             } else {
@@ -92,86 +95,111 @@ void MDS::binding() {
         "get_attr", [=](const std::string &file_uuid) {
             add_log(MDS_directory, "get_attr");
             std::vector<std::string> attr;
-            const std::string meta_path = meta_zk_dir + file_uuid;
+            const std::string meta_path = META_ZK_DIR + file_uuid;
             if (exists_node(meta_path)) {
                 auto info_buff = my_zk_clt.get(meta_path).get().data();
                 auto info_json = nlohmann::json::parse(info_buff);
 
                 attr = std::move(MetaEntityInfo(info_json).get_attr());
+
+                std::cout << "gotcha in get attr____:" << info_buff.data() << std::endl;//TODO
+                std::cout << "metapath____:" << meta_path << std::endl; //TODO
             } else {
+                std::cout << "gotcha error in get attr______________: " << meta_path << std::endl;//TODO
                 rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
             }
-            rpc::this_handler().respond(std::move(attr));
+            rpc::this_handler().respond(attr);
         }
     );
 
     this_server.bind(
             "save_chunk", [=](const std::string &file_UUID, const size_t &chunk_num, const std::vector<char> &chunk_content) {
                 add_log(MDS_directory, "save_chunk");
+                std::cout << "gotcha _________________________________________" << std::endl;//TODO
+                const std::string meta_path = META_ZK_DIR + file_UUID;
+                const std::string chunks_locations_dir = meta_path + "/chunk_locations/";
 
-                if (known_CS.empty()) {
+                auto concrete_meta_data = my_zk_clt.get(meta_path).get();
+                auto global_cs_data = my_zk_clt.get(GLOBAL_CS_PATH).get();
+
+                if (global_cs_data.stat().children_count == 0) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                    std::cout << "###############  no CS  ###############" << std::endl;//TODO
                 }
+                std::cout << "____go ahead_save_chunk_____s" << std::endl;//TODO
 
-                std::ifstream file_chunk(MDS_directory + file_UUID);
-                if (!file_chunk) {
-                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                }
+                auto meta_entity_info = MetaEntityInfo( // получаем инфу метаноды
+                        nlohmann::json::parse(concrete_meta_data.data())
+                        );
 
-                std::vector<size_t> CS_with_chunk;
-                while (true) {
-                    size_t num_in_file;
+                auto chunk_entity_info = ChunkEntityInfo( // получаем инфу о расположениях чанка
+                        exists_node(chunks_locations_dir + std::to_string(chunk_num)) // сущ ли вообще нода
+                        ? nlohmann::json::parse(
+                                my_zk_clt.get(chunks_locations_dir + std::to_string(chunk_num)).get().data()
+                                )
+                        : ChunkEntityInfo::get_empty_json()
+                     );
 
-                    // считать элемент, отвечающий за номер чанка
-                    file_chunk >> num_in_file;
 
-                    if (file_chunk.eof()) {
-                        break;
-                    }
-
-                    if (num_in_file == chunk_num) {
-                        // запомнить номера серверов, где хранится данный чанк
-                        for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                            file_chunk >> num_in_file;
-                            CS_with_chunk.push_back(num_in_file);
-                        }
-                        break;
-                    } else {
-                        // скипнуть ненужную информацию
-                        for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                            file_chunk >> num_in_file;
-                        }
-                    }
-                }
-
-                file_chunk.close();
-
-                if (CS_with_chunk.empty()) {
+                if (chunk_entity_info.get_locations().empty()) {
                     // действия в случае, если чанка с таким номером не существует
-                    std::ofstream meta_data_out(MDS_directory + file_UUID, std::ios_base::app);
+                    auto chunk_servers = my_zk_clt.get_children(GLOBAL_CS_PATH).get(); // все доступные CS
 
-                    meta_data_out << chunk_num << " ";
+                    // количество копий сравниваем с доступными серверами и даём миимальное
+                    auto replica_count = std::min<size_t>(copy_count, chunk_servers.children().size());
 
-                    for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
+                    for (size_t i = 0; i < replica_count; ++i) { // тут закидывваем чанки
                         add_log(MDS_directory, "-new chunk");
                         {
-                            rpc::client CS(known_CS[turn_of_servers].get_info().addr,
-                                           known_CS[turn_of_servers].get_info().port);
-                            CS.set_timeout(data.get_info().timeout);
+                            const auto cs_id = chunk_servers.children()[turn_of_servers]; // получайм cs_id
+
+                            meta_entity_info.get_on_cs().insert(std::stoul(cs_id)); // обновляем on_cs у метаноды
+                            // добавляем cs_id в locations ноды расположения
+                            chunk_entity_info.get_locations().push_back(std::stoul(cs_id));
+
+
+                            auto concrete_cs_data = ConcreteCsEntityInfo( // получаем data выбранного cs и парсим
+                                    nlohmann::json::parse(
+                                            my_zk_clt.get(GLOBAL_CS_PATH + "/" + cs_id).get().data()
+                                            )
+                                    );
+
+                            rpc::client CS(concrete_cs_data.get_ip(), concrete_cs_data.get_port());
+
+                            CS.set_timeout(data.get_info().timeout); // хз, потом просто константу сделаем что б выпилить
                             CS.call("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
                         }
-                        meta_data_out << turn_of_servers << " ";
 
-                        turn_of_servers = (turn_of_servers + 1) % known_CS.size();
+                        turn_of_servers = (turn_of_servers + 1) % chunk_servers.children().size();
                     }
 
-                    meta_data_out.close();
+                    auto locations_dump = chunk_entity_info.to_json().dump(); // сериализуем locations
+                    my_zk_clt.create(
+                            chunks_locations_dir + std::to_string(chunk_num),  // создаём ноду локаций конкретного чанка
+                            zk::buffer(locations_dump.begin(), locations_dump.end())
+                            );
+
+                    auto meta_dump = meta_entity_info.to_json().dump(); // сериализуем метаинфу
+                    my_zk_clt.set(
+                            meta_path,
+                            zk::buffer(meta_dump.begin(), meta_dump.end()) // обновляем метаинфу (точнее on_cs)
+                            );
+
                 } else {
                     // действия в случае, если чанк с таким номером существует
-                    for (auto const &i : CS_with_chunk) {
+                    for (auto const &cs_id : chunk_entity_info.get_locations()) {
                         add_log(MDS_directory, "-update chunk");
                         {
-                            rpc::client CS(known_CS[i].get_info().addr, known_CS[i].get_info().port);
+                            auto concrete_cs_data = ConcreteCsEntityInfo( // получаем data выбранного cs и парсим
+                                    nlohmann::json::parse(
+                                            my_zk_clt.get(GLOBAL_CS_PATH + "/" + std::to_string(cs_id))
+                                            .get().data()
+                                    )
+                            );
+
+
+                            rpc::client CS(concrete_cs_data.get_ip(), concrete_cs_data.get_port());
+
                             CS.set_timeout(data.get_info().timeout);
                             CS.call("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
                         }

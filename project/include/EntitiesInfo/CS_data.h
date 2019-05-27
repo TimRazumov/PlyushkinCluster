@@ -25,12 +25,12 @@ public:
 
 
 
-class ClusterCsData final {
+class ClusterCsEntityInfo final {
 public:
-    explicit ClusterCsData(nlohmann::json &json);
+    explicit ClusterCsEntityInfo(nlohmann::json &json);
 
     uint32_t get_id();
-    nlohmann::json get_data();
+    nlohmann::json to_json();
 
     static nlohmann::json get_empty_json();
 
@@ -41,12 +41,18 @@ private:
 };
 
 
-class ConcreteCsData final {
+class ConcreteCsEntityInfo final {
 public:
-    explicit ConcreteCsData(uint16_t port);
+    explicit ConcreteCsEntityInfo(uint16_t port);
+    explicit ConcreteCsEntityInfo(nlohmann::json &json);
+    explicit ConcreteCsEntityInfo(nlohmann::json &&json);
 
-    nlohmann::json get_data();
-    std::string getIp();
+    std::string& get_ip();
+    std::string get_ip_copy();
+    uint16_t get_port();
+
+    nlohmann::json to_json();
+    std::string inputIp();
 private:
     std::string m_ip;
     uint16_t m_port = 0;

@@ -19,7 +19,7 @@
 #include <nlohmann/json.hpp>
 
 #include "utils.hpp"
-#include "CS_data.h"
+#include "EntitiesInfo/CS_data.h"
 
 // for convenience
 using json = nlohmann::json;

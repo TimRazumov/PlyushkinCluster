@@ -14,8 +14,8 @@
 #include <zk/buffer.hpp>
 #include <nlohmann/json.hpp>
 
-#include "MDS_data.h"
-#include "CS_data.h"
+#include "EntitiesInfo/MDS_data.h"
+#include "EntitiesInfo/CS_data.h"
 
 
 // TODO: проверка, не отвалились ли CS
@@ -42,7 +42,7 @@ private:
     // количество копий чанка на серверах
     std::size_t copy_count;
 
-    // номер сервера, на который будет класться следующий чанк
+    // номер сервера в , на который будет класться следующий чанк
     std::size_t turn_of_servers;
 
     // бинд ф-й, которые может выполнять сервер по запросу клиента
