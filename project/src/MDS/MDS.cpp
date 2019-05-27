@@ -119,6 +119,10 @@ void MDS::binding() {
                 const std::string meta_path = META_ZK_DIR + file_UUID;
                 const std::string chunks_locations_dir = meta_path + "/chunk_locations/";
 
+                if (!exists_node(meta_path)) {
+                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                }
+
                 auto concrete_meta_data = my_zk_clt.get(meta_path).get();
                 auto global_cs_data = my_zk_clt.get(GLOBAL_CS_PATH).get();
 
@@ -155,7 +159,7 @@ void MDS::binding() {
 
                             meta_entity_info.get_on_cs().insert(std::stoul(cs_id)); // обновляем on_cs у метаноды
                             // добавляем cs_id в locations ноды расположения
-                            chunk_entity_info.get_locations().push_back(std::stoul(cs_id));
+                            chunk_entity_info.get_locations().insert(std::stoul(cs_id));
 
 
                             auto concrete_cs_data = ConcreteCsEntityInfo( // получаем data выбранного cs и парсим
@@ -211,35 +215,43 @@ void MDS::binding() {
     this_server.bind(
             "get_chunk", [=](const std::string &file_UUID, const size_t &chunk_num) {
                 add_log(MDS_directory, "get_chunk");
+                std::cout << "gotcha __________________get_chunk____________" << std::endl;//TODO
 
-                if (known_CS.empty()) {
+                const std::string meta_path = META_ZK_DIR + file_UUID;
+                const std::string chunks_locations_dir = meta_path + "/chunk_locations/";
+                const std::string chunk_record_path = chunks_locations_dir + std::to_string(chunk_num);
+
+                if (!exists_node(meta_path)) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
 
-                std::ifstream file_chunk(MDS_directory + file_UUID);
-                if (!file_chunk) {
+                auto concrete_meta_data = my_zk_clt.get(meta_path).get();
+                auto global_cs_data = my_zk_clt.get(GLOBAL_CS_PATH).get();
+
+                if (global_cs_data.stat().children_count == 0) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                    std::cout << "###############  no CS in get chunk  ###############" << std::endl;//TODO
                 }
 
-                size_t num_in_file;
-
-                // считать элемент, отвечающий за номер чанка
-                file_chunk >> num_in_file;
-
-                if (file_chunk.eof()) {
+                if (!exists_node(chunk_record_path)) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+                    std::cout << "###############  can't find meta record in get chunk  ###############"
+                        << std::endl;//TODO
                 }
 
-                // взять номер первого сервера, где хранится данный чанк
-                file_chunk >> num_in_file;
+                auto chunk_locations_data = my_zk_clt.get(chunk_record_path).get().data();
+                auto chunk_entity_info = ChunkEntityInfo(nlohmann::json::parse(chunk_locations_data));
 
-                if (file_chunk.eof()) {
-                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                }
 
-                file_chunk.close();
+                const auto first_cs = *(chunk_entity_info.get_locations().begin());
+                auto concrete_cs_data = my_zk_clt.get(
+                        GLOBAL_CS_PATH + "/" + std::to_string(first_cs)
+                        ).get().data();
 
-                rpc::client CS(known_CS[num_in_file].get_info().addr, known_CS[num_in_file].get_info().port);
+                auto concrete_cs_entity_info = ConcreteCsEntityInfo(nlohmann::json::parse(concrete_cs_data));
+
+
+                rpc::client CS(concrete_cs_entity_info.get_ip(), concrete_cs_entity_info.get_port());
 
                 return CS.call("get_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num))).as<std::vector<char>>();
             }
