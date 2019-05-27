@@ -37,7 +37,8 @@ public:
 class MetaEntityInfo final {
 public:
     explicit MetaEntityInfo(nlohmann::json &json);
-    explicit MetaEntityInfo(std::vector<std::string> &info); // For new node
+    explicit MetaEntityInfo(nlohmann::json &&json);
+    // explicit MetaEntityInfo(std::vector<std::string> &info); // For new node
 
     nlohmann::json to_json();
 
@@ -58,6 +59,7 @@ private:
 class ChunkEntityInfo final {
 public:
     explicit ChunkEntityInfo(nlohmann::json &json);
+    explicit ChunkEntityInfo(nlohmann::json &&json);
 
     nlohmann::json to_json();
 

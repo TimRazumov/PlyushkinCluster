@@ -4,17 +4,17 @@
 
 #include "MDS_data.h"
 
-MetaEntityInfo::MetaEntityInfo(nlohmann::json &json)
+MetaEntityInfo::MetaEntityInfo(nlohmann::json &&json)
     : m_attr(json["attr"].get<std::vector<std::string>>())
     , m_raid(json["raid"].get<int32_t>())
     , m_on_cs(json["on_cs"].get<std::set<uint32_t>>()) {
 
 }
 
-MetaEntityInfo::MetaEntityInfo(std::vector<std::string> &attr)
-    : m_attr(std::move(attr)) {
+MetaEntityInfo::MetaEntityInfo(nlohmann::json &json) : MetaEntityInfo(std::move(json)) {
 
 }
+
 
 nlohmann::json MetaEntityInfo::to_json() {
     return nlohmann::json{
@@ -51,8 +51,12 @@ std::set<uint32_t> MetaEntityInfo::get_on_cs_copy() {
 
 // ------------------------------------------------------
 
-ChunkEntityInfo::ChunkEntityInfo(nlohmann::json &json)
+ChunkEntityInfo::ChunkEntityInfo(nlohmann::json &&json)
     : m_locations(json["locations"].get<std::vector<uint32_t>>()) {
+
+}
+
+ChunkEntityInfo::ChunkEntityInfo(nlohmann::json &json) : ChunkEntityInfo(std::move(json)) {
 
 }
 
@@ -69,5 +73,3 @@ std::vector<uint32_t> &ChunkEntityInfo::get_locations() {
 std::vector<uint32_t> ChunkEntityInfo::get_locations_copy() {
     return m_locations;
 }
-
-
