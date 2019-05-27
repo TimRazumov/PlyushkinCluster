@@ -26,3 +26,6 @@ cmake_uninstall.cmake
 
 # Binaries
 *.out
+
+# ZooKeeper3.5.5
+zk_data/

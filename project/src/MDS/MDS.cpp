@@ -71,6 +71,7 @@ MDS::MDS(const uint16_t &port)
         create_mode("/CLUSTER", zk::create_mode::normal);
         // my_zk_clt.set("/CLUSTER", str_to_vec_ch("id:0")); // TODO: когда кластер станет одной сущностью следует писать его id
         create_mode("/CLUSTER/MDS", zk::create_mode::normal);
+        create_mode("/CLUSTER/RENOVATION", zk::create_mode::normal);
         create_mode("/CLUSTER/CS", zk::create_mode::normal);
         create_mode("/CLUSTER/META", zk::create_mode::normal);
     }
