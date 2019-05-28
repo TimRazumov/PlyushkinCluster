@@ -18,7 +18,7 @@
 #include "EntitiesInfo/CS_data.h"
 
 
-// TODO: проверка, не отвалились ли CS
+// TODO: проверка, не отвалились ли ChunkServer
 // TODO: действия в случае отключения сервака
 // TODO: организация нескольких MDS
 // TODO: daemon

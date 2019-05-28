@@ -32,6 +32,7 @@ bool ChunkServer::connect_to_zks(std::string& ip, std::string& port) {
     try {
         m_zk_client = std::make_unique<zk::client>(std::move(zk::client::connect("zk://" + address).get()));
 
+
         m_is_connected_to_zks = true;
         log = "#SUCCESS#" + log;
         std::cout << log << std::endl;

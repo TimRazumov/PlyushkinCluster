@@ -46,6 +46,7 @@ add_executable(CS.out
         project/src/CS/CS_main.cpp
         project/src/utils.cpp project/src/CS/ChunkServer.cpp project/include/CS/ChunkServer.h "project/src/EntitiesInfo/CS_data.cpp")
 
+
 target_link_libraries(CS.out rpc pthread Boost::filesystem nlohmann_json::nlohmann_json)
 link_directories(/usr/local/lib)
 target_link_libraries(MDS.out zkpp zkpp-server)

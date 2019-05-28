@@ -6,6 +6,7 @@
 #include <rpc/server.h>
 #include <rpc/client.h>
 #include <inttypes.h>
+#include <thread>
 
 #include <zk/server/configuration.hpp>
 #include <zk/server/server.hpp>
@@ -14,6 +15,7 @@
 #include <zk/types.hpp>
 
 #include "MDS.h"
+#include "CS_Watcher.h"
 #include "utils.hpp"
 
 // TODO: обрабатывать, добавлен ли уже такой сервер или нет
@@ -28,6 +30,9 @@ const std::string help = "\nYou can use:\n"
                          "gs  - get status\n"
                          "st  - stop server\n\n";
 
+void Watcher_thread(CS_Watcher& watcher) {
+    watcher.run();
+}
 
 int main(int argc, const char *argv[]) {
     uint16_t port;
@@ -36,6 +41,10 @@ int main(int argc, const char *argv[]) {
         std::cout << "Usage: " << argv[0] << " port\n";
         return 1;
     }
+
+    CS_Watcher watcher = CS_Watcher();
+    std::thread watcher_thread(Watcher_thread, std::ref(watcher));
+    watcher_thread.detach();
 
     std::cout << "The server is running. Port: " << port << std::endl << help;
 
@@ -104,5 +113,5 @@ int main(int argc, const char *argv[]) {
             std::cout << "Unknown command" << std::endl;
         }
     }
-    return 0;
+
 }
