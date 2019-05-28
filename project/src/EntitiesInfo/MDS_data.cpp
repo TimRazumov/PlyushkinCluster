@@ -60,13 +60,13 @@ std::set<uint32_t> MetaEntityInfo::get_on_cs_copy() {
 // ------------------------------------------------------
 
 ChunkEntityInfo::ChunkEntityInfo(nlohmann::json &&json)
-    : m_locations(json["locations"].get<std::vector<uint32_t>>()) {
+    : m_locations(json["locations"].get<std::set<uint32_t>>()) {
 
 }
 
 nlohmann::json ChunkEntityInfo::get_empty_json() {
     return nlohmann::json{
-                            {"locations", std::vector<uint32_t>()}
+                            {"locations", std::set<uint32_t>()}
                          };
 }
 
@@ -80,10 +80,10 @@ nlohmann::json ChunkEntityInfo::to_json() {
                           };
 }
 
-std::vector<uint32_t> &ChunkEntityInfo::get_locations() {
+std::set<uint32_t> &ChunkEntityInfo::get_locations() {
     return m_locations;
 }
 
-std::vector<uint32_t> ChunkEntityInfo::get_locations_copy() {
+std::set<uint32_t> ChunkEntityInfo::get_locations_copy() {
     return m_locations;
 }

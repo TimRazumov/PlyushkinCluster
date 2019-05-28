@@ -155,7 +155,7 @@ void MDS::binding() {
 
                             meta_entity_info.get_on_cs().insert(std::stoul(cs_id)); // обновляем on_cs у метаноды
                             // добавляем cs_id в locations ноды расположения
-                            chunk_entity_info.get_locations().push_back(std::stoul(cs_id));
+                            chunk_entity_info.get_locations().insert(std::stoul(cs_id));
 
 
                             auto concrete_cs_data = ConcreteCsEntityInfo( // получаем data выбранного cs и парсим
@@ -330,16 +330,38 @@ void MDS::binding() {
                     rpc::client rpc_client(CS_info.get_ip(), CS_info.get_port()); // connect to CS by RPC
                     // TODO : timeout
                     rpc_client.call("delete_chunk", file_UUID + std::to_string(chunk_num));
+                }
 
-                    // TODO : check which CS should be deleted from "on_cs"
-                    const std::string chunk_locations = META_ZK_DIR + file_UUID + "/chunk_locations";
-                    const auto& chunks = my_zk_clt.get_children(chunk_locations).get().children();
+                // TODO : check which CS should be deleted from "on_cs"
+                const std::string chunk_locations = META_ZK_DIR + file_UUID + "/chunk_locations";
+                const auto& chunks = my_zk_clt.get_children(chunk_locations).get().children();
 
-                    // check if CS_is has one of chunks
-                    for (const auto& chunk : chunks) {
-                        // auto CS_id
+                // check if CS_is has one of chunks
+                for (const auto& cur_chunk : chunks) {
+                    ChunkEntityInfo cur_chunk_info(std::move(nlohmann::json::parse(
+                            my_zk_clt.get(chunk_locations + "/" + cur_chunk).get().data())));
+                    auto cur_chunk_CS_ids = cur_chunk_info.get_locations();
+
+                    // erase from CS_ids if found cs_id in another chunk_loc not to delete it from "on_cs"
+                    for (const auto &CS_id : CS_ids) {
+                        if (cur_chunk_CS_ids.find(CS_id) != cur_chunk_CS_ids.end()) {  // if found
+                            CS_ids.erase(CS_id);
+                        }
                     }
                 }
+
+                // delete CS from "on_cs" which are in CS_ids (if this CS contained only deleted chunk of its file)
+                MetaEntityInfo meta_of_file(std::move(nlohmann::json::parse(
+                        my_zk_clt.get(META_ZK_DIR + file_UUID).get().data())));
+
+                for (const auto& CS_id : CS_ids) {
+                    meta_of_file.get_on_cs().erase(CS_id);
+                }
+
+                // update "on_cs"
+                const std::string meta_of_file_str = meta_of_file.to_json().dump();
+                my_zk_clt.set(META_ZK_DIR + file_UUID, std::vector<char>(
+                        meta_of_file_str.begin(), meta_of_file_str.end()));
 
             }
 
@@ -348,36 +370,35 @@ void MDS::binding() {
     this_server.bind(
             "delete_file", [=](const std::string &file_UUID) {
                 add_log(MDS_directory, "delete_file");
-                if (known_CS.empty()) {
+                if (!my_zk_clt.exists(META_ZK_DIR + file_UUID).get()) {  // check existing file
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
-                std::ifstream file_chunk(MDS_directory + file_UUID);
-                if (!file_chunk) {
-                    rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
+
+                const std::string chunk_path = META_ZK_DIR + file_UUID + "/chunk_locations";
+                const auto chunk_num_list = my_zk_clt.get_children(chunk_path).get().children();
+
+                // iterate by chunk nodes
+                for (const auto& chunk_num : chunk_num_list) {
+                    ChunkEntityInfo chunk_info(std::move(nlohmann::json::parse(
+                            my_zk_clt.get(chunk_path + "/" + chunk_num).get().data())));
+                    auto chunk_CS_ids = chunk_info.get_locations();
+
+                    // delete chunk on CS
+                    for (const auto& CS_id : chunk_CS_ids) {
+                        nlohmann::json json_CS_info = nlohmann::json::parse(
+                                my_zk_clt.get(GLOBAL_CS_PATH + "/" + std::to_string(CS_id)).get().data());
+
+                        ConcreteCsEntityInfo CS_info(std::move(json_CS_info));
+                        rpc::client rpc_client(CS_info.get_ip(), CS_info.get_port()); // connect to CS by RPC
+                        // TODO : timeout
+                        rpc_client.call("delete_chunk", file_UUID + chunk_num);
+                    }
+
+                    // delete chunk_node
+                    my_zk_clt.erase(chunk_path + "/" + chunk_num);
                 }
-                while (true) {
-                    std::vector<size_t> CS_with_chunk;
-                    size_t chunk_num;
-                    size_t server_num;
-                    file_chunk >> chunk_num;
-                    if (file_chunk.eof()) {
-                        break;
-                    }
-                    for (size_t i = 0; i < std::min<size_t>(copy_count, known_CS.size()); ++i) {
-                        file_chunk >> server_num;
-                        CS_with_chunk.push_back(server_num);
-                    }
-                    for (const auto &srv : CS_with_chunk) {
-                        {
-                            rpc::client CS(known_CS[srv].get_info().addr, known_CS[srv].get_info().port);
-                            CS.set_timeout(data.get_info().timeout);
-                            CS.call("delete_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)));
-                        }
-                    }
-                    CS_with_chunk.clear();
-                }
-                file_chunk.close();
-                boost::filesystem::remove(MDS_directory + file_UUID);
+                // delete file node
+                my_zk_clt.erase(META_ZK_DIR + file_UUID);
             }
     );
 }

@@ -64,11 +64,11 @@ public:
     static nlohmann::json get_empty_json();
     nlohmann::json to_json();
 
-    std::vector<uint32_t> &get_locations();
-    std::vector<uint32_t> get_locations_copy();
+    std::set<uint32_t> &get_locations();
+    std::set<uint32_t> get_locations_copy();
 
 private:
-    std::vector<uint32_t> m_locations;
+    std::set<uint32_t> m_locations;
 };
 
 #endif //PLYUSHKINCLUSTER_KNOWN_MDS_H
