@@ -115,7 +115,7 @@ void MDS::binding() {
     this_server.bind(
             "save_chunk", [=](const std::string &file_UUID, const size_t &chunk_num, const std::vector<char> &chunk_content) {
                 add_log(MDS_directory, "save_chunk");
-                std::cout << "gotcha _________________________________________" << std::endl;//TODO
+                std::cout << "gotcha ___" << chunk_num << "___" << std::endl;//TODO
                 const std::string meta_path = META_ZK_DIR + file_UUID;
                 const std::string chunks_locations_dir = meta_path + "/chunk_locations/";
 
@@ -128,9 +128,9 @@ void MDS::binding() {
 
                 if (global_cs_data.stat().children_count == 0) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                    std::cout << "###############  no CS  ###############" << std::endl;//TODO
+                    std::cout << "###### no CS  #####" << std::endl;//TODO
                 }
-                std::cout << "____go ahead_save_chunk_____s" << std::endl;//TODO
+                std::cout << "____go ahead_save_chunk_____" << chunk_num << std::endl;//TODO
 
                 auto meta_entity_info = MetaEntityInfo( // получаем инфу метаноды
                         nlohmann::json::parse(concrete_meta_data.data())
@@ -146,6 +146,7 @@ void MDS::binding() {
 
 
                 if (chunk_entity_info.get_locations().empty()) {
+                    std::cout << "__chunk_not_exists__" << chunk_num << std::endl;//TODO
                     // действия в случае, если чанка с таким номером не существует
                     auto chunk_servers = my_zk_clt.get_children(GLOBAL_CS_PATH).get(); // все доступные CS
 
@@ -175,6 +176,8 @@ void MDS::binding() {
                         }
 
                         turn_of_servers = (turn_of_servers + 1) % chunk_servers.children().size();
+
+                        std::cout << "_____________success set new chunk_____________" << std::endl;
                     }
 
                     auto locations_dump = chunk_entity_info.to_json().dump(); // сериализуем locations
@@ -191,6 +194,7 @@ void MDS::binding() {
 
                 } else {
                     // действия в случае, если чанк с таким номером существует
+                    std::cout << "__chunk_exists__" << chunk_num << std::endl;//TODO
                     for (auto const &cs_id : chunk_entity_info.get_locations()) {
                         add_log(MDS_directory, "-update chunk");
                         {
@@ -205,6 +209,9 @@ void MDS::binding() {
                             rpc::client CS(concrete_cs_data.get_ip(), concrete_cs_data.get_port());
 
                             CS.set_timeout(data.get_info().timeout);
+
+                            std::cout << "_____________success set existed chunk_____________" << std::endl;
+
                             CS.call("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
                         }
                     }
@@ -215,7 +222,8 @@ void MDS::binding() {
     this_server.bind(
             "get_chunk", [=](const std::string &file_UUID, const size_t &chunk_num) {
                 add_log(MDS_directory, "get_chunk");
-                std::cout << "gotcha __________________get_chunk____________" << std::endl;//TODO
+                std::cout << "gotcha___" << file_UUID <<
+                    "______get_chunk____" << chunk_num << "________" << std::endl;//TODO
 
                 const std::string meta_path = META_ZK_DIR + file_UUID;
                 const std::string chunks_locations_dir = meta_path + "/chunk_locations/";
@@ -235,7 +243,7 @@ void MDS::binding() {
 
                 if (!exists_node(chunk_record_path)) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                    std::cout << "###############  can't find meta record in get chunk  ###############"
+                    std::cout << "######  can't find meta record in get chunk  ####"
                         << std::endl;//TODO
                 }
 
@@ -252,6 +260,8 @@ void MDS::binding() {
 
 
                 rpc::client CS(concrete_cs_entity_info.get_ip(), concrete_cs_entity_info.get_port());
+
+                std::cout << "_____________success get chunk_____________" << std::endl;
 
                 return CS.call("get_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num))).as<std::vector<char>>();
             }
