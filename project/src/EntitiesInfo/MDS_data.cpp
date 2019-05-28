@@ -66,7 +66,7 @@ ChunkEntityInfo::ChunkEntityInfo(nlohmann::json &&json)
 
 nlohmann::json ChunkEntityInfo::get_empty_json() {
     return nlohmann::json{
-                            {"locations", std::vector<uint32_t>()}
+                            {"locations", std::set<uint32_t>()}
                          };
 }
 
