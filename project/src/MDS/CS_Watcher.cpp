@@ -154,9 +154,10 @@ void Renovator::restore_raid_1(const std::string &meta_file_name) {
                 } catch (std::runtime_error& ex) {
                     std::cout << "[Renovator]: " << ex.what() << num_chunk << std::endl;
                 }
+            } else {
+                std::cout << "[Renovator]: couldn't get chunk " << num_chunk
+                          << " from any CS" << std::endl;
             }
-            std::cout << "[Renovator]: couldn't get chunk " << num_chunk
-                << " from any CS" << std::endl;
         }
     }
 }
