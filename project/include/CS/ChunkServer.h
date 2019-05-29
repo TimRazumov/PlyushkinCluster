@@ -19,11 +19,8 @@
 #include <nlohmann/json.hpp>
 
 #include "utils.hpp"
-<<<<<<< HEAD
 #include "EntitiesInfo/CS_data.h"
-=======
 #include "CS_data.h"
->>>>>>> cs_watch
 
 
 #define MEGABYTE 1000000

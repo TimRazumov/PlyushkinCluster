@@ -29,3 +29,6 @@ cmake_uninstall.cmake
 
 # ZooKeeper3.5.5
 zk_data/
+
+# configures
+apache-zookeeper-3.5.5-bin/conf/*

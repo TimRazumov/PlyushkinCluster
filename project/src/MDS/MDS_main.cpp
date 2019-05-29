@@ -41,15 +41,15 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    CS_Watcher watcher = CS_Watcher();
-    std::thread watcher_thread(Watcher_thread, std::ref(watcher));
-    watcher_thread.detach();
-
     std::cout << "The server is running. Port: " << port << std::endl << help;
 
     MDS this_MDS(port);
 
     this_MDS.async_run(3);
+
+    CS_Watcher watcher = CS_Watcher();
+    std::thread watcher_thread(Watcher_thread, std::ref(watcher));
+    watcher_thread.detach();
 
     std::string command;
     while (true) {

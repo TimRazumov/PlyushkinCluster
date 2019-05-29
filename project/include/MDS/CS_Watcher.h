@@ -14,6 +14,8 @@
 #include <iostream>
 #include <unistd.h>
 #include <rpc/client.h>
+#include "utils.hpp"
+#include "EntitiesInfo/MDS_data.h"
 
 using json = nlohmann::json;
 
@@ -21,6 +23,7 @@ const std::string CS_direcrory = "/CLUSTER/CS";
 const std::string meta_directory = "/CLUSTER/META";
 const std::string renovation_directory = "/CLUSTER/RENOVATION";
 const uint16_t timeout_rpc_connect = 2;
+using CSid_t = uint32_t ;
 
 class CS_Watcher final {
 public:
@@ -38,18 +41,18 @@ private:
 
 class Renovator {
 public:
-    explicit Renovator(zk::client& client, const std::string& CS_id);
+    explicit Renovator(zk::client& client, const CSid_t & CS_id);
     void run();
 
 private:
     zk::client& client;
-    const std::string m_CS_id;
+    const CSid_t m_CS_id;
 
     void restore_raid_0(const std::string& file_node_name);
     void restore_raid_1(const std::string& file_node_name);
-    std::vector<char> get_chunk_content(const std::set<std::string>& CS_id_set, const std::string& UUID,
+    std::vector<char> get_chunk_content(const std::set<CSid_t>& CS_id_set, const std::string& UUID,
                                         const std::string& chunk_num) const;
-    std::string send_chunk(const std::set<std::string>& CS_id_set, const std::string& chunk_UUID,
+    CSid_t send_chunk(const std::set<CSid_t >& CS_id_set, const std::string& chunk_UUID,
                     const std::vector<char>& chunk_content);
 };
 
