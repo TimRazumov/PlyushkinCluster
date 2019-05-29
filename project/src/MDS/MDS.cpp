@@ -14,7 +14,7 @@
 MDS::MDS(const uint16_t &port)
     : this_server(port)
     , known_CS()
-    , data(master, 2000)
+    , cs_timeout(2000)
     , copy_count(2)
     , turn_of_servers(0)
     , my_zk_clt(zk::client::connect("zk://127.0.0.1:2182").get())
@@ -171,7 +171,7 @@ void MDS::binding() {
 
                             rpc::client CS(concrete_cs_data.get_ip(), concrete_cs_data.get_port());
 
-                            CS.set_timeout(data.get_info().timeout); // хз, потом просто константу сделаем что б выпилить
+                            CS.set_timeout(cs_timeout); // хз, потом просто константу сделаем что б выпилить
                             CS.call("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
                         }
 
@@ -208,11 +208,11 @@ void MDS::binding() {
 
                             rpc::client CS(concrete_cs_data.get_ip(), concrete_cs_data.get_port());
 
-                            CS.set_timeout(data.get_info().timeout);
-
-                            std::cout << "_____________success set existed chunk_____________" << std::endl;
+                            CS.set_timeout(cs_timeout);
 
                             CS.call("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
+
+                            std::cout << "_____________success set existed chunk_____________" << std::endl;
                         }
                     }
                 }
@@ -222,8 +222,8 @@ void MDS::binding() {
     this_server.bind(
             "get_chunk", [=](const std::string &file_UUID, const size_t &chunk_num) {
                 add_log(MDS_directory, "get_chunk");
-                std::cout << "gotcha___" << file_UUID <<
-                    "______get_chunk____" << chunk_num << "________" << std::endl;//TODO
+                std::cout << " ____get_chunk____ " << file_UUID
+                    << chunk_num << "|" << std::endl;//TODO
 
                 const std::string meta_path = META_ZK_DIR + file_UUID;
                 const std::string chunks_locations_dir = meta_path + "/chunk_locations/";
@@ -238,12 +238,12 @@ void MDS::binding() {
 
                 if (global_cs_data.stat().children_count == 0) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                    std::cout << "###############  no CS in get chunk  ###############" << std::endl;//TODO
+                    std::cout << "###  no CS in get chunk  ####" << std::endl;//TODO
                 }
 
                 if (!exists_node(chunk_record_path)) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
-                    std::cout << "######  can't find meta record in get chunk  ####"
+                    std::cout << "####  can't find meta record in get chunk  ###"
                         << std::endl;//TODO
                 }
 
@@ -260,10 +260,13 @@ void MDS::binding() {
 
 
                 rpc::client CS(concrete_cs_entity_info.get_ip(), concrete_cs_entity_info.get_port());
+                CS.set_timeout(cs_timeout);
 
-                std::cout << "_____________success get chunk_____________" << std::endl;
+                std::cout << "___success get chunk___" << chunk_num << "|" << std::endl;
 
-                return CS.call("get_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num))).as<std::vector<char>>();
+                return CS.call("get_chunk",
+                        uuid_from_str(file_UUID + std::to_string(chunk_num))
+                        ).as<std::vector<char>>();
             }
     );
 
@@ -310,9 +313,10 @@ void MDS::binding() {
 
                          ConcreteCsEntityInfo CS_info(std::move(json_CS_info));
                          rpc::client rpc_client(CS_info.get_ip(), CS_info.get_port()); // connect to CS by RPC
+                         rpc_client.set_timeout(cs_timeout);
                          rpc_client.call("rename_chunk",
-                                         old_file_UUID + chunk_num,
-                                         new_file_UUID + chunk_num);    // TODO : rpc timeout connection
+                                         uuid_from_str(old_file_UUID + chunk_num),
+                                         uuid_from_str(new_file_UUID + chunk_num));
                      }
                  }
 
@@ -336,8 +340,12 @@ void MDS::binding() {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
 
-                ChunkEntityInfo chunk_info(std::move(nlohmann::json::parse(
-                        my_zk_clt.get(chunk_node).get().data())));
+                ChunkEntityInfo chunk_info(
+                        nlohmann::json::parse(
+                            my_zk_clt.get(chunk_node).get().data()
+                            )
+                        );
+
                 my_zk_clt.erase(chunk_node);
 
                 // remember CSs where this chunk is
@@ -346,12 +354,17 @@ void MDS::binding() {
                 // delete chunk from CS
                 for (const auto& CS_id : CS_ids) {
                     nlohmann::json json_CS_info = nlohmann::json::parse(
-                            my_zk_clt.get(GLOBAL_CS_PATH + "/" + std::to_string(CS_id)).get().data());
+                            my_zk_clt.get(
+                                    GLOBAL_CS_PATH + "/" + std::to_string(CS_id)
+                                    ).get().data());
 
-                    ConcreteCsEntityInfo CS_info(std::move(json_CS_info));
+                    ConcreteCsEntityInfo CS_info(json_CS_info);
+
                     rpc::client rpc_client(CS_info.get_ip(), CS_info.get_port()); // connect to CS by RPC
-                    // TODO : timeout
-                    rpc_client.call("delete_chunk", file_UUID + std::to_string(chunk_num));
+                    rpc_client.set_timeout(cs_timeout);
+                    rpc_client.call(
+                            "delete_chunk",
+                            uuid_from_str(file_UUID + std::to_string(chunk_num)));
                 }
 
                 // TODO : check which CS should be deleted from "on_cs"
@@ -401,8 +414,9 @@ void MDS::binding() {
 
                 // iterate by chunk nodes
                 for (const auto& chunk_num : chunk_num_list) {
-                    ChunkEntityInfo chunk_info(std::move(nlohmann::json::parse(
-                            my_zk_clt.get(chunk_path + "/" + chunk_num).get().data())));
+                    ChunkEntityInfo chunk_info(nlohmann::json::parse(
+                            my_zk_clt.get(chunk_path + "/" + chunk_num).get().data())
+                            );
                     auto chunk_CS_ids = chunk_info.get_locations();
 
                     // delete chunk on CS
@@ -412,13 +426,14 @@ void MDS::binding() {
 
                         ConcreteCsEntityInfo CS_info(std::move(json_CS_info));
                         rpc::client rpc_client(CS_info.get_ip(), CS_info.get_port()); // connect to CS by RPC
-                        // TODO : timeout
-                        rpc_client.call("delete_chunk", file_UUID + chunk_num);
+                        rpc_client.set_timeout(cs_timeout);
+                        rpc_client.call("delete_chunk", uuid_from_str(file_UUID + chunk_num));
                     }
 
                     // delete chunk_node
                     my_zk_clt.erase(chunk_path + "/" + chunk_num);
                 }
+                my_zk_clt.erase(chunk_path);
                 // delete file node
                 my_zk_clt.erase(META_ZK_DIR + file_UUID);
             }
@@ -430,10 +445,6 @@ void MDS::add_CS(const std::string &addr, uint16_t port) {
 }
 
 // TODO: должны менять на всех МДС
-void MDS::change_timeout(int64_t new_timeout) {
-    data.change_timeout(new_timeout);
-}
-
-void MDS::change_status() {
-    data.change_status();
+void MDS::set_cs_timeout(int64_t new_timeout) {
+    cs_timeout = new_timeout;
 }

@@ -37,7 +37,7 @@ private:
     std::vector<CS_data> known_CS;
 
     // information
-    MDS_data data;
+    size_t cs_timeout;
 
     // количество копий чанка на серверах
     std::size_t copy_count;
@@ -70,18 +70,14 @@ public:
         return known_CS;
     }
 
-    int64_t const get_timeout() {
-        return data.get_info().timeout;
+    int64_t const get_cs_timeout() {
+        return cs_timeout;
     }
 
-    MDS_status const get_status() {
-        return data.get_info().status;
-    }
 
     void add_CS(const std::string &addr, uint16_t port);
 
-    void change_timeout(int64_t new_timeout);
-    void change_status();
+    void set_cs_timeout(int64_t new_timeout);
 };
 
 

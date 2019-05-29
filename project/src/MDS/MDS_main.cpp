@@ -19,22 +19,21 @@
 #include "utils.hpp"
 
 // TODO: обрабатывать, добавлен ли уже такой сервер или нет
-const std::string help = "\nYou can use:\n"
-                         "help\n"
-                         "a   - add ChunkServer\n"
-                         "al  - add local ChunkServer\n"
-                         "cs  - ChunkServer list\n"
-                         "cht - change timeout\n"
-                         "gt  - get timeout\n"
-                         "chs - change status\n"
-                         "gs  - get status\n"
-                         "st  - stop server\n\n";
 
 void Watcher_thread(CS_Watcher& watcher) {
     watcher.run();
 }
 
 int main(int argc, const char *argv[]) {
+    const std::string help = "\nYou can use:\n"
+                             "help\n"
+                             "a   - add ChunkServer\n"
+                             "al  - add local ChunkServer\n"
+                             "cs  - ChunkServer list\n"
+                             "cht - change timeout\n"
+                             "gt  - get timeout\n"
+                             "st  - stop server\n\n";
+
     uint16_t port;
 
     if (argc != 2 || !str_to_uint16(argv[1], port)) {
@@ -97,18 +96,13 @@ int main(int argc, const char *argv[]) {
             std::cout << "New timeout (ms): ";
             std::cin >> command;
             if (str_to_uint16(command.c_str(), new_timeout)) {
-                this_MDS.change_timeout(new_timeout);
+                this_MDS.set_cs_timeout(new_timeout);
                 std::cout << "Done" << std::endl;
             } else {
                 std::cout << "Wrong value" << std::endl;
             }
         } else if (command == "gt") {
-            std::cout << "Current timeout (ms): " << this_MDS.get_timeout() << std::endl;
-        } else if (command == "chs") {
-            this_MDS.change_status();
-            std::cout << "IN PROGRESS" << std::endl;
-        } else if (command == "gs") {
-            std::cout << "Current status: " << this_MDS.get_status() << std::endl;
+            std::cout << "Current timeout (ms): " << this_MDS.get_cs_timeout() << std::endl;
         } else {
             std::cout << "Unknown command" << std::endl;
         }

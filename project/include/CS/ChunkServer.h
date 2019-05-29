@@ -25,8 +25,9 @@
 #include "CS_data.h"
 >>>>>>> cs_watch
 
-// for convenience
-using json = nlohmann::json;
+
+#define MEGABYTE 1000000
+
 
 class ChunkServer {
 public:
