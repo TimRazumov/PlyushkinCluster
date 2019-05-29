@@ -21,8 +21,9 @@
 #include "utils.hpp"
 #include "EntitiesInfo/CS_data.h"
 
-// for convenience
-using json = nlohmann::json;
+
+#define MEGABYTE 1000000
+
 
 class ChunkServer {
 public:

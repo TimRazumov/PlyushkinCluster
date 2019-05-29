@@ -75,7 +75,7 @@ bool ChunkServer::register_cs_rpc() {
 
         auto cs_global_data = cs_global_node.data();
 
-        auto json = cs_global_data.size() == 0
+        auto json = cs_global_data.empty()
                 ? ClusterCsEntityInfo::get_empty_json()
                 : nlohmann::json::parse(cs_global_data);
 
@@ -109,52 +109,54 @@ void ChunkServer::binding(std::string& cs_dir) {
 // возвращает все исключения, возникшие в забинденных ф-ях в клиент TODO: включить когда настанет время
     // rpc_server.suppress_exceptions(true);
 
-    m_rpc_server.bind(
-            "save_chunk", [=](const std::string &chunk_UUID, const std::vector<char> &chunk_content) {
+    auto save_chunk_func =
+            [=](const std::string &chunk_UUID, const std::vector<char> &chunk_content) {
                 add_log(cs_dir, "save_chunk");
 
-                std::ofstream chunk_file(cs_dir + chunk_UUID);
+                std::ofstream chunk_file(cs_dir + chunk_UUID, std::ios::binary);
 
-                for (auto const &symbol : chunk_content) {
-                    chunk_file << symbol;
-                }
+                chunk_file.write(chunk_content.data(), chunk_content.size());
 
                 chunk_file.close();
-            }
-    );
+            };
 
-    m_rpc_server.bind(
-            "get_chunk", [=](const std::string &chunk_UUID) {
-                add_log(cs_dir, "get_chunk");
+    auto get_chunk_func =
+            [=](const std::string &chunk_UUID) {
+            add_log(cs_dir, "get_chunk");
 
-                std::ifstream chunk_file(cs_dir + chunk_UUID);
-                std::vector<char> chunk_content;
-                char buffer;
+            std::ifstream chunk_file(cs_dir + chunk_UUID, std::ios::binary);
 
-                chunk_file.get(buffer);
-                while (!chunk_file.eof()) {
-                    chunk_content.push_back(buffer);
-                    chunk_file.get(buffer);
-                };
+            std::vector<char> chunk_content;
+            chunk_content.reserve(MEGABYTE);
 
-                chunk_file.close();
-                return chunk_content;
-            }
-    );
+            chunk_content.insert(
+                    chunk_content.begin(),
+                    (std::istreambuf_iterator<char>(chunk_file)),
+                    std::istreambuf_iterator<char>());
 
-    m_rpc_server.bind(
-            "rename_chunk", [=](const std::string &old_UUID, const std::string &new_UUID) {
+            chunk_file.close();
+
+            return chunk_content;
+        };
+
+    auto rename_chunk_func =
+            [=](const std::string &old_UUID, const std::string &new_UUID) {
                 add_log(cs_dir, "rename_chunk");
 
                 boost::filesystem::rename(cs_dir + old_UUID, cs_dir + new_UUID);
-            }
-    );
+            };
 
-    m_rpc_server.bind(
-            "delete_chunk", [=](const std::string &chunk_UUID) {
+
+    auto delete_chunk_func =
+            [=](const std::string &chunk_UUID) {
                 add_log(cs_dir, "delete_chunk");
 
                 boost::filesystem::remove(cs_dir + chunk_UUID);
-            }
-    );
+            };
+
+
+    m_rpc_server.bind("save_chunk", save_chunk_func);
+    m_rpc_server.bind("get_chunk", get_chunk_func);
+    m_rpc_server.bind("rename_chunk", rename_chunk_func);
+    m_rpc_server.bind("delete_chunk", delete_chunk_func);
 }
