@@ -178,9 +178,12 @@ std::vector<char> Renovator::get_chunk_content(const std::set<CSid_t>& CS_id_set
             port = CS_Watcher::get_port(CS_info);
         } catch (const zk::no_entry& ex) { continue; }
 
-        rpc::client rpc_client(ip, port);
-        if (wait_for_rpc_connection(rpc_client, timeout_rpc_connect)) {
+        try {
+            rpc::client rpc_client(ip, port);
+            rpc_client.set_timeout(cs_timeout);
             return rpc_client.call("get_chunk", uuid_from_str(file_UUID + chunk_num)).as<std::vector<char>>();
+        } catch (const std::exception& e) {
+            std::cout << e.what() << std::endl;
         }
     }
     return std::vector<char>();  // return empty vector, if there's no servers to get chunk
@@ -207,11 +210,15 @@ CSid_t Renovator::send_chunk(const std::set<CSid_t>& CS_id_set, const std::strin
                 continue;
             }
 
-            rpc::client rpc_client(ip, port);
-            if (wait_for_rpc_connection(rpc_client, timeout_rpc_connect)) {
+            try {
+                rpc::client rpc_client(ip, port);
+                rpc_client.set_timeout(cs_timeout);
+
                 rpc_client.call("save_chunk", uuid_from_str(chunk_UUID), chunk_content);
                 turn_of_CS = (id + 1) % n;
                 return std::atol(CS_id_list[id % n].c_str());
+            } catch (const std::exception& e) {
+                std::cout << e.what() << std::endl;
             }
         }
         id++;
@@ -220,6 +227,7 @@ CSid_t Renovator::send_chunk(const std::set<CSid_t>& CS_id_set, const std::strin
     throw std::runtime_error("no CS is enable for copying chunk ");
 }
 
+/*
 inline bool Renovator::wait_for_rpc_connection(const rpc::client& rpc_client,
                                                const std::chrono::microseconds& timeout) {
     std::chrono::time_point<std::chrono::system_clock>
@@ -239,3 +247,4 @@ inline bool Renovator::wait_for_rpc_connection(const rpc::client& rpc_client,
 
     return true;
 }
+*/

@@ -22,7 +22,7 @@ using json = nlohmann::json;
 const std::string CS_direcrory = "/CLUSTER/CS";
 const std::string meta_directory = "/CLUSTER/META";
 const std::string renovation_directory = "/CLUSTER/RENOVATION";
-const std::chrono::microseconds timeout_rpc_connect(500);
+const int64_t cs_timeout(2000);
 using CSid_t = uint32_t ;
 
 class CS_Watcher final {
