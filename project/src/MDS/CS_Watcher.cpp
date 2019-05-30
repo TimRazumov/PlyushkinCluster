@@ -132,6 +132,7 @@ void Renovator::restore_raid_1(const std::string &meta_file_name) {
 
 
         auto CS_id_set = chunk_info.get_locations();                  // which current chunk contains
+        CS_id_set.erase(m_CS_id);
 
         if (CS_id_set.find(m_CS_id) != CS_id_set.end()) {                                      // check does CS_id contains current chunk
             auto chunk_content = get_chunk_content(CS_id_set, meta_file_name, num_chunk);
@@ -140,17 +141,11 @@ void Renovator::restore_raid_1(const std::string &meta_file_name) {
                 try {
                     CSid_t new_CS_id = send_chunk(CS_id_set, meta_file_name + num_chunk, chunk_content);
 
-
                     std::cout << "[Renovator]: chunk " << meta_file_name + num_chunk << " copied to "
                               << new_CS_id << std::endl;
 
-                    CS_id_set.erase(m_CS_id);
                     CS_id_set.insert(new_CS_id);
 
-                    json new_data = {"locations", CS_id_set};
-                    std::string str_new_data = new_data.dump();
-                    client.set(chunk_locations_node_name + "/" + num_chunk,
-                               zk::buffer(str_new_data.begin(), str_new_data.end()));
                 } catch (std::runtime_error& ex) {
                     std::cout << "[Renovator]: " << ex.what() << num_chunk << std::endl;
                 }
@@ -159,6 +154,12 @@ void Renovator::restore_raid_1(const std::string &meta_file_name) {
                           << " from any CS" << std::endl;
             }
         }
+
+        json new_data = ChunkEntityInfo::get_empty_json();
+        new_data["locations"] = CS_id_set;
+        std::string str_new_data = new_data.dump();
+        client.set(chunk_locations_node_name + "/" + num_chunk,
+                   zk::buffer(str_new_data.begin(), str_new_data.end()));
     }
 }
 
@@ -172,17 +173,17 @@ std::vector<char> Renovator::get_chunk_content(const std::set<CSid_t>& CS_id_set
             auto CS_info = client.get(CS_direcrory + "/" + std::to_string(try_CS_id)).get();
             ip = CS_Watcher::get_ip(CS_info);
             port = CS_Watcher::get_port(CS_info);
-        } catch (const zk::no_entry& ex) {continue;}
+        } catch (const zk::no_entry& ex) { continue; }
 
         rpc::client rpc_client(ip, port);
-        sleep(timeout_rpc_connect);
-        if (rpc_client.get_connection_state() == rpc::client::connection_state::connected) {
-            return rpc_client.call("get_chunk", uuid_from_str(file_UUID + chunk_num)).as<std::vector<char>>();
-
+        //sleep(timeout_rpc_connect);
+        //if (rpc_client.get_connection_state() == rpc::client::connection_state::connected) {
+          return rpc_client.call("get_chunk", uuid_from_str(file_UUID + chunk_num)).as<std::vector<char>>();
+/*
         } else {
             continue;
         }
-
+*/
     }
     return std::vector<char>();  // return empty vector, if there's no servers to get chunk
 }
@@ -204,11 +205,14 @@ CSid_t Renovator::send_chunk(const std::set<CSid_t>& CS_id_set, const std::strin
             } catch (const zk::no_entry& ex) {continue;}
 
             rpc::client rpc_client(ip, port);
+
+            /*
             sleep(timeout_rpc_connect);
             if (rpc_client.get_connection_state() == rpc::client::connection_state::connected) {
+            */
                 rpc_client.call("save_chunk", uuid_from_str(chunk_UUID), chunk_content);
                 return std::atol(CS_id.c_str());
-            }
+            //}
         }
     }
 
