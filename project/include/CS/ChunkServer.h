@@ -10,12 +10,17 @@
 #include <fstream>
 #include <thread>
 #include <string>
+#include <map>
 
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
+
 #include <rpc/server.h>
 #include <rpc/this_handler.h>
+
 #include <zk/client.hpp>
 #include <zk/error.hpp>
+
 #include <nlohmann/json.hpp>
 
 #include "utils.hpp"
@@ -25,10 +30,21 @@
 
 #define MEGABYTE 1000000
 
+struct CsConfig{
+    uint16_t rpc_server_port;
+    uint16_t zks_port;
+    std::string zks_ip;
+};
+
 
 class ChunkServer {
 public:
-    ChunkServer(uint16_t rpc_server_port);
+    explicit ChunkServer(CsConfig& config);
+
+    static CsConfig read_cs_config(const char *config_name);
+    static CsConfig read_cs_config(std::string &config_name);
+
+    bool connect_to_zks();
 
     bool connect_to_zks(std::string& ip, std::string& port);
 
@@ -40,8 +56,9 @@ public:
 
     bool is_registered();
 
+
 private:
-    uint16_t m_rpc_server_port;
+    CsConfig m_config;
     rpc::server m_rpc_server;
     std::unique_ptr<zk::client> m_zk_client;
 

@@ -44,7 +44,14 @@ ConcreteCsEntityInfo::ConcreteCsEntityInfo(uint16_t port)
 
 }
 
-ConcreteCsEntityInfo::ConcreteCsEntityInfo(nlohmann::json &json) : ConcreteCsEntityInfo(std::move(json)) {
+ConcreteCsEntityInfo::ConcreteCsEntityInfo(std::string &ip, uint16_t port)
+                : m_ip(ip)
+                , m_port(port) {
+
+}
+
+ConcreteCsEntityInfo::ConcreteCsEntityInfo(nlohmann::json &json)
+                : ConcreteCsEntityInfo(std::move(json)) {
 
 }
 
@@ -65,7 +72,7 @@ nlohmann::json ConcreteCsEntityInfo::to_json() {
                          };
 }
 
-std::string ConcreteCsEntityInfo::inputIp() { // TODO(nickeskov): не уверен, что рабоатет
+std::string ConcreteCsEntityInfo::inputIp() {
     std::string ip;
     std::cout << "Please, input this CS ip adress" << std::endl;
     std::cin >> ip;
