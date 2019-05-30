@@ -22,7 +22,7 @@ using json = nlohmann::json;
 const std::string CS_direcrory = "/CLUSTER/CS";
 const std::string meta_directory = "/CLUSTER/META";
 const std::string renovation_directory = "/CLUSTER/RENOVATION";
-const uint16_t timeout_rpc_connect = 2;
+const std::chrono::microseconds timeout_rpc_connect(500);
 using CSid_t = uint32_t ;
 
 class CS_Watcher final {
@@ -46,7 +46,8 @@ public:
 
 private:
     zk::client& client;
-    const CSid_t m_CS_id;
+    const CSid_t m_CS_id;   // CS_id of fallen CS
+    CSid_t turn_of_CS = 0;      // CS_id of current CS recomended for writing chunk
 
     void restore_raid_0(const std::string& file_node_name);
     void restore_raid_1(const std::string& file_node_name);
@@ -54,6 +55,9 @@ private:
                                         const std::string& chunk_num) const;
     CSid_t send_chunk(const std::set<CSid_t >& CS_id_set, const std::string& chunk_UUID,
                     const std::vector<char>& chunk_content);
+
+    static inline bool wait_for_rpc_connection(const rpc::client& rpc_client,
+                                                   const std::chrono::microseconds& timeout);
 };
 
 
