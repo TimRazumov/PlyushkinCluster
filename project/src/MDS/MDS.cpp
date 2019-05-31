@@ -362,14 +362,11 @@ void MDS::binding() {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                 }
 
-                nlohmann::json meta_data = nlohmann::json::parse(
-                        m_zk_clt.get(META_ZK_DIR + old_file_UUID).get().data());
+                auto meta_data = m_zk_clt.get(META_ZK_DIR + old_file_UUID).get().data();
 
-                auto meta_str  = meta_data.dump();
-                m_zk_clt.create(META_ZK_DIR + new_file_UUID,
-                                 zk::buffer(meta_str.begin(), meta_str.end())); // create a new znode with new UUID
+                m_zk_clt.create(META_ZK_DIR + new_file_UUID, meta_data); // create a new znode with new UUID
 
-                 m_zk_clt.create(META_ZK_DIR + new_file_UUID + "/chunk_locations",zk::buffer());
+                m_zk_clt.create(META_ZK_DIR + new_file_UUID + "/chunk_locations", zk::buffer());
 
 
                  // copy all meta chunks
@@ -378,29 +375,40 @@ void MDS::binding() {
                  const auto chunks = m_zk_clt.get_children(old_chunk_path).get().children(); // get names of chunk children
 
                  for (const auto& chunk_num : chunks) {
-                     nlohmann::json chunk_meta_data = nlohmann::json::parse(
-                             m_zk_clt.get(old_chunk_path + "/" + chunk_num).get().data());
-                     const auto data_str = chunk_meta_data.dump();
+                     auto chunk_meta_data = m_zk_clt.get(old_chunk_path + "/" + chunk_num).get().data();
 
-                     m_zk_clt.create(new_chunk_path + "/" + chunk_num,
-                                      zk::buffer(data_str.begin(), data_str.end())); // create new chunk
-                     m_zk_clt.erase(old_chunk_path + "/" + chunk_num);     // delete old chunk
+                     m_zk_clt.create(new_chunk_path + "/" + chunk_num, chunk_meta_data); // create new chunk
+
+                     ChunkEntityInfo chunk_info(ChunkEntityInfo::get_empty_json());
+                     std::cout << "------parse " <<  old_chunk_path + "/" + chunk_num << "------" << std::endl;
+                     if (is_exists_node(old_chunk_path + "/" + chunk_num)) {
+                         chunk_info = ChunkEntityInfo(nlohmann::json::parse(m_zk_clt.get(
+                                 old_chunk_path + "/" + chunk_num).get().data()));
+                         m_zk_clt.erase(old_chunk_path + "/" + chunk_num);     // delete old chunk
+
+                     } else {
+                         std::cout << "No entry " <<  old_chunk_path + "/" + chunk_num << std::endl;
+                     }
 
                      // TODO : CHECKING CREATING NODES
                      // rename chunk UUID on every CS
-                     const auto CS_id_set = chunk_meta_data["locations"]
-                             .get<std::set<std::string>>();
+                     const auto CS_id_set = chunk_info.get_locations();
 
                      for (const auto& CS_id : CS_id_set) {
-                         nlohmann::json json_CS_info = nlohmann::json::parse(
-                                 m_zk_clt.get(GLOBAL_CS_PATH + "/" + CS_id).get().data());
+                         std::cout << "-----get " << CS_id << " -----" << std::endl;
+                         ConcreteCsEntityInfo CS_info(nlohmann::json::parse(
+                                 m_zk_clt.get(GLOBAL_CS_PATH + "/" + std::to_string(CS_id)).get().data()));
 
-                         ConcreteCsEntityInfo CS_info(std::move(json_CS_info));
-                         rpc::client rpc_client(CS_info.get_ip(), CS_info.get_port()); // connect to CS by RPC
-                         rpc_client.set_timeout(cs_timeout);
-                         rpc_client.call("rename_chunk",
-                                         uuid_from_str(old_file_UUID + chunk_num),
-                                         uuid_from_str(new_file_UUID + chunk_num));
+                         try {
+                             rpc::client rpc_client(CS_info.get_ip(), CS_info.get_port()); // connect to CS by RPC
+                             rpc_client.set_timeout(cs_timeout);
+                             rpc_client.call("rename_chunk",
+                                             uuid_from_str(old_file_UUID + chunk_num),
+                                             uuid_from_str(new_file_UUID + chunk_num));
+                         } catch (const std::exception& ex){
+                             std::cout << ex.what() << std::endl;
+                             return;
+                         }
                      }
                  }
 
