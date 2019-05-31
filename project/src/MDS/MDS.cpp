@@ -78,7 +78,7 @@ void MDS::binding() {
             auto info_old_buff = my_zk_clt.get(meta_path).get().data();
 
             nlohmann::json info_json;
-                info_json = info_old_buff.size() != 0
+                info_json = !info_old_buff.empty()
                         ? nlohmann::json::parse(my_zk_clt.get(meta_path).get().data())
                         : MetaEntityInfo::get_empty_json();
 
@@ -151,11 +151,16 @@ void MDS::binding() {
                     auto chunk_servers = my_zk_clt.get_children(GLOBAL_CS_PATH).get(); // все доступные CS
 
                     // количество копий сравниваем с доступными серверами и даём миимальное
-                    auto replica_count = std::min<size_t>(copy_count, chunk_servers.children().size());
+                    // + чекаем какой у нас рейд
+                    auto replica_count = meta_entity_info.get_raid() != 0
+                            ? std::min<size_t>(copy_count, chunk_servers.children().size())
+                            : 1;
 
                     for (size_t i = 0; i < replica_count; ++i) { // тут закидывваем чанки
                         add_log(MDS_directory, "-new chunk");
                         {
+                            turn_of_servers = (turn_of_servers + 1) % chunk_servers.children().size();
+
                             const auto cs_id = chunk_servers.children()[turn_of_servers]; // получайм cs_id
 
                             meta_entity_info.get_on_cs().insert(std::stoul(cs_id)); // обновляем on_cs у метаноды
@@ -175,8 +180,6 @@ void MDS::binding() {
                             CS.call("save_chunk", uuid_from_str(file_UUID + std::to_string(chunk_num)), chunk_content);
                         }
 
-                        turn_of_servers = (turn_of_servers + 1) % chunk_servers.children().size();
-
                         std::cout << "_____________success set new chunk_____________" << std::endl;
                     }
 
@@ -194,7 +197,7 @@ void MDS::binding() {
 
                 } else {
                     // действия в случае, если чанк с таким номером существует
-                    std::cout << "__chunk_exists__" << chunk_num << std::endl;//TODO
+                    std::cout << "__chunk_exists__" << chunk_num << std::endl; // TODO
                     for (auto const &cs_id : chunk_entity_info.get_locations()) {
                         add_log(MDS_directory, "-update chunk");
                         {
@@ -234,9 +237,10 @@ void MDS::binding() {
                 }
 
                 auto concrete_meta_data = my_zk_clt.get(meta_path).get();
-                auto global_cs_data = my_zk_clt.get(GLOBAL_CS_PATH).get();
+                auto alive_cs_count = my_zk_clt.exists(GLOBAL_CS_PATH)
+                        .get().stat().value().children_count;
 
-                if (global_cs_data.stat().children_count == 0) {
+                if (alive_cs_count == 0) {
                     rpc::this_handler().respond_error(std::make_tuple(1, "UNKNOWN ERROR"));
                     std::cout << "###  no CS in get chunk  ####" << std::endl;//TODO
                 }
@@ -250,14 +254,21 @@ void MDS::binding() {
                 auto chunk_locations_data = my_zk_clt.get(chunk_record_path).get().data();
                 auto chunk_entity_info = ChunkEntityInfo(nlohmann::json::parse(chunk_locations_data));
 
-
-                const auto first_cs = *(chunk_entity_info.get_locations().begin());
-                auto concrete_cs_data = my_zk_clt.get(
-                        GLOBAL_CS_PATH + "/" + std::to_string(first_cs)
+                zk::buffer concrete_cs_data;
+                {
+                    const auto chunk_locations = chunk_entity_info.get_locations();
+                    for (const auto& cs_id : chunk_locations) {
+                        if (!my_zk_clt.exists(GLOBAL_CS_PATH + "/" + std::to_string(cs_id)).get()) {
+                            continue;
+                        }
+                        concrete_cs_data = my_zk_clt.get(
+                                GLOBAL_CS_PATH + "/" + std::to_string(cs_id)
                         ).get().data();
+                        break;
+                    }
+                }
 
                 auto concrete_cs_entity_info = ConcreteCsEntityInfo(nlohmann::json::parse(concrete_cs_data));
-
 
                 rpc::client CS(concrete_cs_entity_info.get_ip(), concrete_cs_entity_info.get_port());
                 CS.set_timeout(cs_timeout);

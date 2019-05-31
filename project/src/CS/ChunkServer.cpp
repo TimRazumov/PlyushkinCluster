@@ -16,8 +16,11 @@ ChunkServer::ChunkServer(uint16_t rpc_server_port)
     add_log(m_cs_dir, "The rpc server is running. Port: " + std::to_string(rpc_server_port));
     std::cout << "The rpc server is running. Port: " << rpc_server_port << std::endl;
 
+    boost::filesystem::remove_all(m_cs_dir);
 
-    if (boost::filesystem::create_directories(m_cs_dir)) {
+    boost::filesystem::create_directories(m_cs_dir);
+    //if (boost::filesystem::create_directories(m_cs_dir))
+    {
         std::cout << "Create directory " << m_cs_dir << std::endl;
         add_log(m_cs_dir, "Create directory " + m_cs_dir);
     }
