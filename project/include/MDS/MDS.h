@@ -25,6 +25,11 @@
 // TODO: sysadmin tools: create and add server, set password, safety stop server, etc
 
 
+const std::string META_ZK_DIR = "/CLUSTER/META/";
+const std::string GLOBAL_CS_PATH = "/CLUSTER/CS";
+const std::string RENOVATION_PATH = "/CLUSTER/RENOVATION";
+
+
 struct MdsConfig{
     uint16_t rpc_server_port;
     uint16_t zks_port;
@@ -43,9 +48,6 @@ private:
     // я хз, шо тут комментировать. Крч, основа класса. Не стал делать наследником по причине "ну нахер"
     rpc::server this_server;
 
-    // поддержание связи с другими серваками
-    std::vector<CS_data> known_CS;
-
     // information
     size_t cs_timeout;
 
@@ -60,9 +62,14 @@ private:
     
     // for zk
     void create_empty_node(const std::string &dir, zk::create_mode node_type);
-    bool exists_node(const std::string &path);
+
+    bool is_exists_node(const std::string &path);
+
+    bool is_renovation_going();
+
     bool is_access();
-    zk::client my_zk_clt;
+
+    zk::client m_zk_clt;
 
 public:
 
@@ -73,28 +80,15 @@ public:
 
     ~MDS() = default;
 
-    void async_run(const std::size_t &worker_threads = 1) {
-        this_server.async_run(worker_threads);
-    }
+    void async_run(const std::size_t &worker_threads = 1);
 
-    void stop() {
-        this_server.stop();
-    }
+    void stop();
 
-    std::vector<CS_data> const get_known_CS() {
-        return known_CS;
-    }
+    std::map<std::string, std::string> const get_known_CS();
 
-    int64_t const get_cs_timeout() {
-        return cs_timeout;
-    }
+    int64_t const get_cs_timeout();
 
-    zk::client get_zk_client() {
-        return my_zk_clt;
-    }
-
-
-    void add_CS(const std::string &addr, uint16_t port);
+    zk::client get_zk_client();
 
     void set_cs_timeout(int64_t new_timeout);
 };

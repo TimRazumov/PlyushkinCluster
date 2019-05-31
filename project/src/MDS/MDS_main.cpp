@@ -27,8 +27,6 @@ void Watcher_thread(CS_Watcher& watcher) {
 int main(int argc, const char *argv[]) {
     const std::string help = "\nYou can use:\n"
                              "help\n"
-                             "a   - add ChunkServer\n"
-                             "al  - add local ChunkServer\n"
                              "cs  - ChunkServer list\n"
                              "cht - change timeout\n"
                              "gt  - get timeout\n"
@@ -53,7 +51,7 @@ int main(int argc, const char *argv[]) {
 
     MDS this_MDS(mds_config);
 
-    this_MDS.async_run(3);
+    this_MDS.async_run(4);
 
     auto zk_mds_client = this_MDS.get_zk_client();
     CS_Watcher watcher = CS_Watcher(zk_mds_client);
@@ -70,36 +68,14 @@ int main(int argc, const char *argv[]) {
             return 0;
         } else if (command == "help") {
             std::cout << help;
-        } else if (command == "a") {
-            std::string addr;
-
-            std::cout << "IP: ";
-            std::cin >> addr;
-            std::cout << "Port: ";
-            std::cin >> command;
-            uint16_t CS_port;
-            if (str_to_uint16(command.c_str(), CS_port)) {
-                std::cout << "\nAdded ChunkServer.\n" << "IP: " << addr << "\nPort: " << CS_port << "\n" << std::endl;
-                this_MDS.add_CS(addr, CS_port);
-            } else {
-                std::cout << "Wrong rpc_server_port value" << std::endl;
-            }
-        } else if (command == "al") {
-            std::cout << "Port: ";
-            std::cin >> command;
-            uint16_t CS_port;
-            if (str_to_uint16(command.c_str(), CS_port)) {
-                std::cout << "Added local ChunkServer. Port: " << CS_port << std::endl;
-                this_MDS.add_CS("127.0.0.1", CS_port);
-            } else {
-                std::cout << "Wrong rpc_server_port value" << std::endl;
-            }
         } else if (command == "cs") {
             auto known_CS = this_MDS.get_known_CS();
-            std::cout << "All known ChunkServer:" << std::endl;
+            std::cout << "All known ChunkServers list:" << std::endl
+                << "----------------------------------" << std::endl;
             for (const auto &CS : known_CS) {
-                std::cout << CS.get_info().addr << " " << CS.get_info().port << std::endl;
+                std::cout << CS.first << "=" << CS.second << std::endl;
             }
+            std::cout << "----------------------------------"<< std::endl;
         } else if (command == "cht") {
             uint16_t new_timeout;
             std::cout << "New timeout (ms): ";
