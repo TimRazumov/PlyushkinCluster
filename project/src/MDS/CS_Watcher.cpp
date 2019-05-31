@@ -93,7 +93,7 @@ void Renovator::run() {
         std::string full_meta_node_path = meta_directory + "/" + meta_file_name; // "Cluster/Meta/<some_file>.meta"
         MetaEntityInfo meta(json::parse(client.get(full_meta_node_path).get().data()));
 
-        auto& on_cs = meta.get_on_cs();
+        auto on_cs = meta.get_on_cs_copy();
         if (on_cs.find(m_CS_id) != on_cs.end()) {
             auto raid = meta.get_raid();
 
@@ -109,9 +109,9 @@ void Renovator::run() {
                 std::cerr << "Unknown RAID on " << meta_file_name << std::endl;
             }
 
-            on_cs.erase(m_CS_id);
-            std::string str_meta = meta.to_json().dump();
-            client.set(full_meta_node_path, std::vector<char>(str_meta.begin(), str_meta.end()));
+           // on_cs.erase(m_CS_id);
+            //std::string str_meta = meta.to_json().dump();
+            //client.set(full_meta_node_path, std::vector<char>(str_meta.begin(), str_meta.end()));
         }
     }
 }
@@ -128,13 +128,15 @@ void Renovator::restore_raid_1(const std::string &meta_file_name) {
             + meta_file_name + "/chunk_locations";
     auto chunk_locs = client.get_children(chunk_locations_node_name).get().children();
 
+    MetaEntityInfo file_info(nlohmann::json::parse(client.get(
+            meta_directory + "/" + meta_file_name).get().data()));
+    auto& on_cs = file_info.get_on_cs();
+
     for (const auto& num_chunk : chunk_locs) {
         ChunkEntityInfo chunk_info(json::parse((client.get(chunk_locations_node_name + "/" + num_chunk)
                                                 .get().data())));
 
-
-        auto CS_id_set = chunk_info.get_locations();                  // which current chunk contains
-
+        auto& CS_id_set = chunk_info.get_locations();                  // which current chunk contains
 
         if (CS_id_set.find(m_CS_id) != CS_id_set.end()) {             // check does CS_id contains current chunk
             CS_id_set.erase(m_CS_id);
@@ -147,6 +149,11 @@ void Renovator::restore_raid_1(const std::string &meta_file_name) {
                     std::cout << "[Renovator]: chunk " << meta_file_name + num_chunk << " copied to "
                               << new_CS_id << std::endl;
 
+                    if (on_cs.find(new_CS_id) == on_cs.end()) {
+                       // std::cout << "adding " << new_CS_id << " to on_cs" << std::endl;
+                        on_cs.insert(new_CS_id);
+                    }
+
                     CS_id_set.insert(new_CS_id);
 
                 } catch (std::runtime_error& ex) {
@@ -158,12 +165,20 @@ void Renovator::restore_raid_1(const std::string &meta_file_name) {
             }
         }
 
-        json new_data = ChunkEntityInfo::get_empty_json();
-        new_data["locations"] = CS_id_set;
-        std::string str_new_data = new_data.dump();
+       // json new_data = ChunkEntityInfo::get_empty_json();
+       // new_data["locations"] = CS_id_set;
+        std::string str_new_data = chunk_info.to_json().dump();
         client.set(chunk_locations_node_name + "/" + num_chunk,
                    zk::buffer(str_new_data.begin(), str_new_data.end()));
+
+
     }
+
+    on_cs.erase(m_CS_id);
+   // std::cout << "Writing " << file_info.to_json().dump() << " to meta_directory + \"/\" + meta_file_name" << std::endl;
+    std::string str_file_info = file_info.to_json().dump();
+    client.set(meta_directory + "/" + meta_file_name,
+               zk::buffer(str_file_info.begin(), str_file_info.end()));
 }
 
 std::vector<char> Renovator::get_chunk_content(const std::set<CSid_t>& CS_id_set, const std::string& file_UUID,

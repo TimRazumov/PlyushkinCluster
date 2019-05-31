@@ -51,6 +51,7 @@ private:
     // for zk
     void create_empty_node(const std::string &dir, zk::create_mode node_type);
     bool exists_node(const std::string &path);
+    bool is_access();
     zk::client my_zk_clt;
 
 public:
