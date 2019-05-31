@@ -46,7 +46,7 @@ void CS_Watcher::run() {
 
                 found_cs[cs] = true;
             } catch (const std::out_of_range& ex) {
-                std::cout << "[CS_Watcher]: new znode = " + CS_direcrory + "/" << cs << " | address = "
+                std::cout << "[CS_Watcher]: new znode = " + CS_direcrory + "/" << cs << " | address F= "
                     << CS_addr << std::endl;
                 known_CS[cs] = CS_addr;
             }
@@ -75,7 +75,7 @@ void CS_Watcher::renovate(const std::set<std::string> &fallen_cs) {
         if (!client.exists(renovation_node).get()) {
             client.create(renovation_node, zk::buffer(), zk::create_mode::ephemeral);
 
-            Renovator renovator(this->client, std::atol(CS_id.c_str()));
+            Renovator renovator(this->client, std::stol(CS_id));
             renovator.run();
 
             std::cout << "[CS_Watcher]: " << CS_id << " was renovated" << std::endl;
@@ -213,7 +213,7 @@ CSid_t Renovator::send_chunk(const std::set<CSid_t>& CS_id_set, const std::strin
     CSid_t n = CS_id_list.size();
     CSid_t id = turn_of_CS;
     do {
-        if (CS_id_set.find(std::atol(CS_id_list[id % n].c_str())) == CS_id_set.end()) {
+        if (CS_id_set.find(std::stol(CS_id_list[id % n])) == CS_id_set.end()) {
             std::string ip;
             uint16_t port;
 
@@ -231,7 +231,7 @@ CSid_t Renovator::send_chunk(const std::set<CSid_t>& CS_id_set, const std::strin
 
                 rpc_client.call("save_chunk", uuid_from_str(chunk_UUID), chunk_content);
                 turn_of_CS = (id + 1) % n;
-                return std::atol(CS_id_list[id % n].c_str());
+                return std::stol(CS_id_list[id % n].c_str());
             } catch (const std::exception& e) {
                 std::cout << e.what() << std::endl;
             }
