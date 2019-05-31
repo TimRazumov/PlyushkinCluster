@@ -56,8 +56,6 @@ CsConfig ChunkServer::read_cs_config(std::string &config_name) {
                 continue;
             }
 
-            std::cout << config_line_buff << std::endl;
-
             boost::algorithm::split(config_buff, config_line_buff, boost::is_any_of("="));
 
             map_config.insert(std::make_pair(config_buff[0], config_buff[1]));

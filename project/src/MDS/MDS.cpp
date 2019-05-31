@@ -1,23 +1,28 @@
 #include <iostream>
 #include <fstream>
 #include <thread>
-#include <boost/filesystem.hpp>
 #include <string>
+
 #include <rpc/server.h>
 #include <rpc/client.h>
 #include <rpc/this_handler.h>
+
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "MDS.h"
 #include "utils.hpp"
 
 
-MDS::MDS(const uint16_t &port)
-    : this_server(port)
+MDS::MDS(const MdsConfig &config)
+    : m_config(config)
+    , this_server(config.rpc_server_port)
     , known_CS()
     , cs_timeout(2000)
     , copy_count(2)
     , turn_of_servers(0)
-    , my_zk_clt(zk::client::connect("zk://127.0.0.1:2182").get())
+    , my_zk_clt(zk::client::connect(
+            "zk://" + m_config.zks_ip + ":" + std::to_string(m_config.zks_port)).get())
 {
     if (!exists_node("/CLUSTER")) {
         create_empty_node("/CLUSTER", zk::create_mode::normal);
@@ -34,13 +39,65 @@ MDS::MDS(const uint16_t &port)
     // this_server.suppress_exceptions(true);
 
     MDS_directory = getenv("HOME");
-    MDS_directory += "/plyushkincluster/servers/MDS/" + std::to_string(port) + "/";
+    MDS_directory += "/plyushkincluster/servers/MDS/" + std::to_string(m_config.rpc_server_port) + "/";
 
     if (boost::filesystem::create_directories(MDS_directory)) {
         std::cout << "Create directory " << MDS_directory << std::endl;
     }
 
     binding();
+}
+
+
+MdsConfig MDS::read_mds_config(const char *config_name) {
+    auto str_config_name = std::string(config_name);
+    return read_mds_config(str_config_name);
+}
+MdsConfig MDS::read_mds_config(std::string &config_name) {
+    std::map<std::string, std::string> map_config;
+
+    // Reading config
+    {
+        std::ifstream config_file(config_name);
+
+        std::vector<std::string> config_buff(2);
+        std::string config_line_buff;
+
+        while (!config_file.eof()) {
+            std::getline(config_file, config_line_buff);
+            boost::algorithm::trim(config_line_buff);
+
+            auto pos = config_line_buff.find('#');
+
+            if (pos != std::string::npos) {
+                config_line_buff.resize(pos);
+            }
+
+            if (config_line_buff.empty()) {
+                continue;
+            }
+
+            boost::algorithm::split(config_buff, config_line_buff, boost::is_any_of("="));
+
+            map_config.insert(std::make_pair(config_buff[0], config_buff[1]));
+
+            config_buff.clear();
+            config_line_buff = "";
+        }
+        config_file.close();
+    }
+
+    MdsConfig config;
+
+    // Config init
+    {
+        config.rpc_server_port = std::stoul(map_config["rpcServerPort"]);
+
+        config.zks_ip = map_config["zooKeeperServerIp"];
+        config.zks_port = std::stoul(map_config["zooKeeperServerPort"]);
+    }
+
+    return config;
 }
 
 

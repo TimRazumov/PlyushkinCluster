@@ -6,7 +6,7 @@
 #include "CS_Watcher.h"
 
 // constructor - make connection
-CS_Watcher::CS_Watcher() : client("zk://127.0.0.1:2182") {}
+CS_Watcher::CS_Watcher(zk::client &zk_mds_client) : client(zk_mds_client) {} // TODO
 
 // get ip of cs by zk::get_result
 std::string CS_Watcher::get_ip(const zk::get_result& res) {

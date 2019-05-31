@@ -25,9 +25,19 @@
 // TODO: sysadmin tools: create and add server, set password, safety stop server, etc
 
 
+struct MdsConfig{
+    uint16_t rpc_server_port;
+    uint16_t zks_port;
+    std::string zks_ip;
+};
+
+
 // основной класс для демона, работающего на серверах метаданных
 class MDS {
 private:
+    // конфига
+    MdsConfig m_config;
+
     std::string MDS_directory;
 
     // я хз, шо тут комментировать. Крч, основа класса. Не стал делать наследником по причине "ну нахер"
@@ -55,7 +65,11 @@ private:
     zk::client my_zk_clt;
 
 public:
-    explicit MDS(const uint16_t &port);
+
+    explicit MDS(const MdsConfig &config);
+
+    static MdsConfig read_mds_config(const char *config_name);
+    static MdsConfig read_mds_config(std::string &config_name);
 
     ~MDS() = default;
 
@@ -73,6 +87,10 @@ public:
 
     int64_t const get_cs_timeout() {
         return cs_timeout;
+    }
+
+    zk::client get_zk_client() {
+        return my_zk_clt;
     }
 
 

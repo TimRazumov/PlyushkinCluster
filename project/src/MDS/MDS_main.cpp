@@ -34,20 +34,29 @@ int main(int argc, const char *argv[]) {
                              "gt  - get timeout\n"
                              "st  - stop server\n\n";
 
-    uint16_t port;
+    uint16_t rpc_server_port;
 
-    if (argc != 2 || !str_to_uint16(argv[1], port)) {
-        std::cout << "Usage: " << argv[0] << " port\n";
-        return 1;
+    if (argc != 2 || !str_to_uint16(argv[1], rpc_server_port)) {
+        rpc_server_port = 0;
     }
 
-    std::cout << "The server is running. Port: " << port << std::endl << help;
+    std::cout << "Reading configuration from 'mds_zoo.cfg'" << std::endl;
 
-    MDS this_MDS(port);
+    MdsConfig mds_config = MDS::read_mds_config("mds_zoo.cfg");
+
+    if (rpc_server_port != 0) {
+        mds_config.rpc_server_port = rpc_server_port;
+    }
+
+    std::cout << "The rpc server is running. Port: "
+        << mds_config.rpc_server_port << std::endl << help;
+
+    MDS this_MDS(mds_config);
 
     this_MDS.async_run(3);
 
-    CS_Watcher watcher = CS_Watcher();
+    auto zk_mds_client = this_MDS.get_zk_client();
+    CS_Watcher watcher = CS_Watcher(zk_mds_client);
     std::thread watcher_thread(Watcher_thread, std::ref(watcher));
     watcher_thread.detach();
 
@@ -73,7 +82,7 @@ int main(int argc, const char *argv[]) {
                 std::cout << "\nAdded ChunkServer.\n" << "IP: " << addr << "\nPort: " << CS_port << "\n" << std::endl;
                 this_MDS.add_CS(addr, CS_port);
             } else {
-                std::cout << "Wrong port value" << std::endl;
+                std::cout << "Wrong rpc_server_port value" << std::endl;
             }
         } else if (command == "al") {
             std::cout << "Port: ";
@@ -83,7 +92,7 @@ int main(int argc, const char *argv[]) {
                 std::cout << "Added local ChunkServer. Port: " << CS_port << std::endl;
                 this_MDS.add_CS("127.0.0.1", CS_port);
             } else {
-                std::cout << "Wrong port value" << std::endl;
+                std::cout << "Wrong rpc_server_port value" << std::endl;
             }
         } else if (command == "cs") {
             auto known_CS = this_MDS.get_known_CS();

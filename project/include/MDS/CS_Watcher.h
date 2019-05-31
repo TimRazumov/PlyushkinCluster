@@ -27,7 +27,7 @@ using CSid_t = uint32_t ;
 
 class CS_Watcher final {
 public:
-    explicit CS_Watcher();
+    explicit CS_Watcher(zk::client &zk_mds_client);
     void run();
     void renovate(const std::set<std::string>& fallen_cs);
 
