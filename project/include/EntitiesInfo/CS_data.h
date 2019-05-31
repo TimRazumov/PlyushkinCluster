@@ -44,6 +44,7 @@ private:
 class ConcreteCsEntityInfo final {
 public:
     explicit ConcreteCsEntityInfo(uint16_t port);
+    explicit ConcreteCsEntityInfo(std::string &ip, uint16_t port);
     explicit ConcreteCsEntityInfo(nlohmann::json &json);
     explicit ConcreteCsEntityInfo(nlohmann::json &&json);
 
@@ -52,7 +53,7 @@ public:
     uint16_t get_port();
 
     nlohmann::json to_json();
-    std::string inputIp();
+    static std::string inputIp();
 private:
     std::string m_ip;
     uint16_t m_port = 0;

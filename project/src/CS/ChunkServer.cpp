@@ -4,17 +4,17 @@
 
 #include "ChunkServer.h"
 
-ChunkServer::ChunkServer(uint16_t rpc_server_port)
-                : m_rpc_server_port(rpc_server_port)
-                , m_rpc_server(rpc_server_port)
+ChunkServer::ChunkServer(CsConfig& config)
+                : m_config(config)
+                , m_rpc_server(m_config.rpc_server_port)
                 , m_cs_dir(
-                            std::string(getenv("HOME")) +
-                            "/plyushkincluster/servers/ChunkServer/" +
-                            std::to_string(rpc_server_port) +
-                            "/"
+                            std::string(getenv("HOME"))
+                            + "/plyushkincluster/servers/ChunkServer/"
+                            + std::to_string(m_config.rpc_server_port)
+                            + "/"
                           ) {
-    add_log(m_cs_dir, "The rpc server is running. Port: " + std::to_string(rpc_server_port));
-    std::cout << "The rpc server is running. Port: " << rpc_server_port << std::endl;
+    add_log(m_cs_dir, "The rpc server is running. Port: " + std::to_string(m_config.rpc_server_port));
+    std::cout << "The rpc server is running. Port: " << m_config.rpc_server_port << std::endl;
 
     boost::filesystem::remove_all(m_cs_dir);
 
@@ -28,16 +28,75 @@ ChunkServer::ChunkServer(uint16_t rpc_server_port)
     this->binding(m_cs_dir);
 }
 
+CsConfig ChunkServer::read_cs_config(const char *config_name) {
+    auto str_config_name = std::string(config_name);
+    return read_cs_config(str_config_name);
+}
+CsConfig ChunkServer::read_cs_config(std::string &config_name) {
+    std::map<std::string, std::string> map_config;
+
+    // Reading config
+    {
+        std::ifstream config_file(config_name);
+
+        std::vector<std::string> config_buff(2);
+        std::string config_line_buff;
+
+        while (!config_file.eof()) {
+            std::getline(config_file, config_line_buff);
+            boost::algorithm::trim(config_line_buff);
+
+            auto pos = config_line_buff.find('#');
+
+            if (pos != std::string::npos) {
+                config_line_buff.resize(pos);
+            }
+
+            if (config_line_buff.empty()) {
+                continue;
+            }
+
+            std::cout << config_line_buff << std::endl;
+
+            boost::algorithm::split(config_buff, config_line_buff, boost::is_any_of("="));
+
+            map_config.insert(std::make_pair(config_buff[0], config_buff[1]));
+
+            config_buff.clear();
+            config_line_buff = "";
+        }
+        config_file.close();
+    }
+
+    CsConfig config;
+
+    // Config init
+    {
+        config.rpc_server_port = std::stoul(map_config["rpcServerPort"]);
+
+        config.zks_ip = map_config["zooKeeperServerIp"];
+        config.zks_port = std::stoul(map_config["zooKeeperServerPort"]);
+    }
+
+    return config;
+}
+
+bool ChunkServer::connect_to_zks() {
+    std::string zks_port = std::to_string(m_config.zks_port);
+    return connect_to_zks(m_config.zks_ip, zks_port);
+}
+
 bool ChunkServer::connect_to_zks(std::string& ip, std::string& port) {
     auto address = ip + ":" + port;
     auto log = "connect_to_zk_server: " + address;
 
     try {
-        m_zk_client = std::make_unique<zk::client>(std::move(zk::client::connect("zk://" + address).get()));
+        m_zk_client = std::make_unique<zk::client>(
+                std::move(zk::client::connect("zk://" + address).get()));
 
 
         m_is_connected_to_zks = true;
-        log = "#SUCCESS#" + log;
+        log = "#SUCCESS# " + log;
         std::cout << log << std::endl;
 
     } catch (zk::error& error) {
@@ -83,8 +142,8 @@ bool ChunkServer::register_cs_rpc() {
                 ? ClusterCsEntityInfo::get_empty_json()
                 : nlohmann::json::parse(cs_global_data);
 
-        auto cluster_cs_data = ClusterCsEntityInfo(json);
-        auto concrete_cs_data = ConcreteCsEntityInfo(m_rpc_server_port);
+        ClusterCsEntityInfo cluster_cs_data(json);
+        ConcreteCsEntityInfo concrete_cs_data(m_config.zks_ip, m_config.rpc_server_port);
 
         m_this_cs_path = "/CLUSTER/CS/" + std::to_string(cluster_cs_data.get_id());
 
@@ -117,7 +176,8 @@ void ChunkServer::binding(std::string& cs_dir) {
             [=](const std::string &chunk_UUID, const std::vector<char> &chunk_content) {
                 add_log(cs_dir, "save_chunk");
 
-                std::ofstream chunk_file(cs_dir + chunk_UUID, std::ios::binary);
+                std::ofstream chunk_file(cs_dir + chunk_UUID,
+                        std::ios::binary | std::ios::trunc);
 
                 chunk_file.write(chunk_content.data(), chunk_content.size());
 
@@ -164,3 +224,5 @@ void ChunkServer::binding(std::string& cs_dir) {
     m_rpc_server.bind("rename_chunk", rename_chunk_func);
     m_rpc_server.bind("delete_chunk", delete_chunk_func);
 }
+
+#undef MEGABYTE
