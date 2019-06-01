@@ -13,7 +13,7 @@
 
 #include "utils.hpp"
 
-const int TIMEOUT = 5000;
+const int TIMEOUT = 20000;
 
 using err_t = std::tuple<int, std::string>;
 

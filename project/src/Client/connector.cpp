@@ -6,7 +6,7 @@
 
 #include "utils.hpp"
 
-const int TIMEOUT = 5000;
+const int TIMEOUT = 20000;
 const int LOCAL_PORT = 2280;
 constexpr size_t CHUNK_SIZE = 2*1024*1024;
 

@@ -17,7 +17,7 @@
 MDS::MDS(const MdsConfig &config)
     : m_config(config)
     , this_server(config.rpc_server_port)
-    , cs_timeout(2000)
+    , cs_timeout(20000)
     , copy_count(2)
     , turn_of_servers(0)
     , m_zk_clt(zk::client::connect(

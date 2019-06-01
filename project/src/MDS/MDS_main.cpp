@@ -51,7 +51,7 @@ int main(int argc, const char *argv[]) {
 
     MDS this_MDS(mds_config);
 
-    this_MDS.async_run(4);
+    this_MDS.async_run(1);
 
     auto zk_mds_client = this_MDS.get_zk_client();
     CS_Watcher watcher = CS_Watcher(zk_mds_client);
